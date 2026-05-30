@@ -1,0 +1,99 @@
+# clang-format configuration for linux-kernel-samples.
+#
+# Derived from the Linux kernel's own .clang-format (strict kernel style),
+# with two intentional, project-wide deviations:
+#   1. InsertBraces: true  -> never omit braces, even for a single statement.
+#   2. ColumnLimit: 0       -> do not enforce a hard column limit / no reflow.
+#
+# Note: InsertBraces requires clang-format >= 15. The canonical, exhaustive
+# ForEachMacros list lives in the kernel tree's own .clang-format; the set
+# below covers the iterators these samples actually use.
+---
+Language: Cpp
+BasedOnStyle: LLVM
+
+# --- Indentation: hard tabs, 8-column width ---
+UseTab: Always
+TabWidth: 8
+IndentWidth: 8
+ContinuationIndentWidth: 8
+IndentCaseLabels: false
+IndentGotoLabels: false
+IndentPPDirectives: None
+NamespaceIndentation: None
+
+# --- Braces: Linux style (function brace on next line, control on same line) ---
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterClass: false
+  AfterControlStatement: false
+  AfterEnum: false
+  AfterFunction: true
+  AfterNamespace: true
+  AfterStruct: false
+  AfterUnion: false
+  AfterExternBlock: false
+  BeforeCatch: false
+  BeforeElse: false
+  IndentBraces: false
+  SplitEmptyFunction: true
+  SplitEmptyRecord: true
+
+# --- Deviation #1: always require braces ---
+InsertBraces: true
+AllowShortBlocksOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+
+# --- Deviation #2: do not enforce a hard column limit ---
+ColumnLimit: 0
+ReflowComments: false
+
+# --- Pointers, spacing, alignment ---
+PointerAlignment: Right
+DerivePointerAlignment: false
+SpaceBeforeParens: ControlStatements
+SpaceAfterCStyleCast: false
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+SpacesInContainerLiterals: false
+SpacesInCStyleCastParentheses: false
+AlignAfterOpenBracket: Align
+AlignEscapedNewlines: Left
+AlignOperands: true
+AlignTrailingComments: false
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: false
+
+# --- Misc kernel conventions ---
+Cpp11BracedListStyle: false
+KeepEmptyLinesAtTheStartOfBlocks: false
+MaxEmptyLinesToKeep: 1
+SortIncludes: false
+SpaceBeforeAssignmentOperators: true
+BreakBeforeBinaryOperators: None
+BreakBeforeTernaryOperators: false
+
+# --- Kernel iteration macros: format as control statements, not calls ---
+ForEachMacros:
+  - 'list_for_each'
+  - 'list_for_each_safe'
+  - 'list_for_each_prev'
+  - 'list_for_each_prev_safe'
+  - 'list_for_each_entry'
+  - 'list_for_each_entry_safe'
+  - 'list_for_each_entry_reverse'
+  - 'list_for_each_entry_continue'
+  - 'hlist_for_each'
+  - 'hlist_for_each_safe'
+  - 'hlist_for_each_entry'
+  - 'hlist_for_each_entry_safe'
+  - 'for_each_possible_cpu'
+  - 'for_each_online_cpu'
+  - 'for_each_present_cpu'
+  - 'for_each_cpu'
+  - 'for_each_process'
+  - 'for_each_process_thread'
+  - 'for_each_thread'
