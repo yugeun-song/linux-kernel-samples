@@ -34,12 +34,16 @@ best represents that theme (its "primary owner"). Cross-cutting primitives with
 no owner go in `lib/` (data structures) or `core/` (container_of, kref, ERR_PTR,
 likely/unlikely, ...). Directories are created on demand as samples are added.
 
-A sample lives at `<theme>/<sample>/<sample>.c`; that single `.c` is all the repo
-tracks for an ordinary sample. A sample documents itself by printing to the
-kernel log, so `dmesg` after `insmod` is the explanation.
+A sample lives at `<theme>/<sample>/<sample>.c` — the module source is named
+after its directory. A sample documents itself by printing to the kernel log,
+so `dmesg` after `insmod` is the explanation.
 
-A userspace companion program is named `*.user.c`, or placed in a `user/`
-subdirectory; both are excluded from kernel-module discovery.
+Samples are registered explicitly, the way the kernel lists every object in its
+Kbuild files: there is no globbing. The top-level `Makefile` holds a `SAMPLES`
+list, and a sample is built only once it is added there (see "Registering a
+sample"). Because only the registered module source (`<sample>.c`, or the
+objects a `sample.mk` declares) is compiled, a userspace companion file next to
+it may be named anything and is simply ignored by the module build.
 
 ## Anatomy of a sample (composition principle)
 
@@ -113,12 +117,13 @@ module — including the kernel's own `samples/` — delegates to
 make <theme>/<sample>
   |
   +- top Makefile
-  |    - discovers samples (find *.c, excluding scripts/, .git, user/, *.user.c)
+  |    - reads the explicit SAMPLES list (no globbing)
   |    - applies defaults (host KVER/KDIR; ARCH/CROSS_COMPILE empty)
   |    - -include config.mk   (optional, PC-local persistent target)
   |
   +- scripts/kmod.mk   (per-sample driver; one recursive make per sample)
        - -include <sample>/sample.mk   (optional requirements)
+       - module source: <sample>.c, or the objects sample.mk declares
        - preflight: $(error) and stop if the target is unsupported
        - generates <sample>/Kbuild  (obj-m := <name>.o), git-ignored
        |
@@ -126,24 +131,44 @@ make <theme>/<sample>
             - kernel build: CC -> MODPOST -> CC mod.o -> LD .ko -> BTF
 ```
 
+- **Explicit, not globbed.** Like the kernel's `obj-m`, the build target list is
+  declared, never inferred from whatever `.c` files happen to be present. This is
+  deterministic, keeps stray or work-in-progress files out of the build, and lets
+  module sources, userspace helpers, and generated files share a directory
+  safely.
 - **One entry point.** The top `Makefile` is the only thing you run. The
-  per-sample `Kbuild` is a one-line `obj-m` manifest that kbuild's `M=`
-  interface requires, so it is generated at build time rather than committed —
-  the repo tracks only `.c`.
+  per-sample `Kbuild` is a one-line `obj-m` manifest that kbuild's `M=` interface
+  requires, so it is generated at build time rather than committed — the repo
+  tracks only `.c`.
 - **Hard-fail preflight.** Before invoking the kernel build, the driver stops
   with `$(error ...)` when: the kernel build tree is missing, a requested cross
   compiler is absent, a sample's required `CONFIG` is off, the arch is
   unsupported, or the kernel is older than a sample's minimum. An unsupported
-  target becomes an immediate, explicit failure instead of a confusing deep
-  error from inside the kernel build.
+  target becomes an immediate, explicit failure instead of a confusing deep error
+  from inside the kernel build.
+
+### Registering a sample
+
+A sample is built only when it is listed, mirroring the kernel's per-directory
+`obj-m`. Add the source at `<theme>/<sample>/<sample>.c`, then add the sample to
+the `SAMPLES` list in the top-level `Makefile`:
+
+```make
+SAMPLES := \
+	process/task_struct_fields \
+	interrupts/softirq_demo
+```
+
+Use a `sample.mk` only for a multi-file module or special build requirements
+(see the contract below).
 
 ### Running the build
 
 ```
-make                       # build every sample
+make                       # build every registered sample
 make <theme>/<sample>      # build one, e.g. make process/task_struct_fields
-make clean                 # clean every sample
-make list                  # list discovered samples
+make clean                 # clean every registered sample
+make list                  # list registered samples
 ```
 
 ### Targeting another kernel or architecture
@@ -183,7 +208,7 @@ nothing but its `.c`. Recognized variables:
 
 | variable | meaning |
 |----------|---------|
-| `SAMPLE_MODULE` | module name when it differs from a single source file |
+| `SAMPLE_MODULE` | module name when it differs from the sample directory name |
 | `SAMPLE_OBJS` | object list for a multi-file module (`a.o b.o`) |
 | `SAMPLE_REQUIRED_CONFIGS` | kernel configs that must be `=y`/`=m` (e.g. `CONFIG_KPROBES`) |
 | `SAMPLE_SUPPORTED_ARCH` | allowed arches (e.g. `x86 x86_64`) |

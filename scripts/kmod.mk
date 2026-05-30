@@ -8,15 +8,14 @@ ifeq ($(SAMPLE),)
 $(error SAMPLE is not set)
 endif
 
-src  := $(abspath $(SAMPLE))
-srcs := $(filter-out %.user.c,$(notdir $(wildcard $(src)/*.c)))
+src := $(abspath $(SAMPLE))
 
 -include $(src)/sample.mk
 
 ifdef SAMPLE_MODULE
 mod := $(SAMPLE_MODULE)
 else
-mod := $(basename $(firstword $(srcs)))
+mod := $(notdir $(SAMPLE))
 endif
 
 KBUILD_ARGS := M=$(src)
@@ -29,13 +28,9 @@ endif
 
 ifneq ($(filter build,$(MAKECMDGOALS)),)
 
-ifeq ($(srcs),)
-$(error no kernel-module .c source found in $(SAMPLE))
-endif
-
-ifndef SAMPLE_MODULE
-ifneq ($(words $(srcs)),1)
-$(error $(SAMPLE) has multiple .c files; set SAMPLE_MODULE and SAMPLE_OBJS in $(SAMPLE)/sample.mk)
+ifndef SAMPLE_OBJS
+ifeq ($(wildcard $(src)/$(mod).c),)
+$(error $(SAMPLE): expected module source $(mod).c (set SAMPLE_MODULE/SAMPLE_OBJS in sample.mk))
 endif
 endif
 

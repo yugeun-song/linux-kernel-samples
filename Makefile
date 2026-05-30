@@ -6,7 +6,8 @@ CROSS_COMPILE ?=
 -include config.mk
 
 DRIVER  := scripts/kmod.mk
-SAMPLES := $(sort $(patsubst ./%/,%,$(dir $(shell find . \( -path ./scripts -o -path ./.git -o -name user -o -name '*.user.c' \) -prune -o -name '*.c' -print))))
+
+SAMPLES :=
 
 PASS := KVER='$(KVER)' KDIR='$(KDIR)'
 ifneq ($(ARCH),)
@@ -29,4 +30,4 @@ clean:
 	@for s in $(SAMPLES); do $(SUBMAKE) clean SAMPLE=$$s; done
 
 list:
-	@printf '%s\n' $(SAMPLES)
+	@for s in $(SAMPLES); do echo "$$s"; done
