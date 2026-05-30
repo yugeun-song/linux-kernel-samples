@@ -1,0 +1,50 @@
+# ---- Kernel module build artifacts (kbuild) ----
+*.o
+*.o.*
+*.ko
+*.ko.unsigned
+*.mod
+*.mod.c
+*.mod.o
+*.symvers
+*.order
+Module.symvers
+modules.order
+.tmp_versions/
+.*.cmd
+*.dwo
+*.gcno
+
+# ---- Generated per-sample kbuild stub (created at build time, never committed) ----
+Kbuild
+
+# ---- PC-local build target config (not part of the repo) ----
+config.mk
+
+# ---- clangd / LSP ----
+compile_commands.json
+.cache/
+.clangd/
+
+# ---- Editor / code indexing ----
+*.swp
+*.swo
+*~
+tags
+.tags*
+cscope.files
+cscope.out
+cscope.in.out
+cscope.po.out
+
+# ---- Core dumps (userspace test harnesses, if any) ----
+core
+core.*
+
+# ---- OS ----
+.DS_Store
+Thumbs.db
+
+# ---- AI tool artifacts ----
+.claude/
+CLAUDE.md
