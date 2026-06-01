@@ -4,8 +4,8 @@ Runnable Linux kernel modules for learning the kernel by doing. Each sample
 isolates one **main theme** — a struct, function, or macro — as a loadable
 module you build, `insmod`, observe in `dmesg`, and `rmmod`.
 
-This repository is currently **environment only**: the build system, coding-style
-configuration, and conventions are in place; sample modules are added on demand.
+The build system, coding-style configuration, and conventions are in place;
+sample modules are added on demand.
 The sections below double as study notes and as context for any tooling
 (including future Claude Code sessions) that needs to understand how the repo is
 built and how a sample is composed.
@@ -22,10 +22,11 @@ the most recognizable term and a clear word where it is not:
 | `mm/` | pages, slab, kmalloc/vmalloc, `mm_struct`, VMAs |
 | `interrupts/` | IRQ, softirq, tasklet, threaded IRQ |
 | `locking/` | spinlock, mutex, rwsem, completion, RCU, atomics |
+| `smp/` | per-cpu data, IPIs, cpumask, CPU-bound kthreads, CPU hotplug |
 | `time/` | jiffies, timers, hrtimer, delays |
 | `fs/` | file_operations, procfs/sysfs/debugfs, char devices |
 | `net/` | sk_buff, netdev, netfilter |
-| `arch/` | per-cpu, barriers, MSR/CR, arch-specific details |
+| `arch/` | barriers, MSR/CR, arch-specific details |
 | `lib/` | generic data structures: list, rbtree, hashtable, idr |
 | `core/` | cross-cutting primitives: container_of, kref, ERR_PTR |
 
