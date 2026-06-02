@@ -223,7 +223,7 @@ nothing but its `.c`. Recognized variables:
 | `SAMPLE_MODULE` | module name when it differs from the source file basename |
 | `SAMPLE_OBJS` | object list for a multi-file module (`a.o b.o`) |
 | `SAMPLE_REQUIRED_CONFIGS` | kernel configs that must be `=y`/`=m` (e.g. `CONFIG_KPROBES`) |
-| `SAMPLE_SUPPORTED_ARCH` | allowed arches (e.g. `x86 x86_64`) |
+| `SAMPLE_SUPPORTED_ARCH` | allowed arches, in kbuild ARCH names (e.g. `x86 arm64`) |
 | `SAMPLE_MIN_KVER` | minimum kernel version (e.g. `5.14`) |
 
 ## Coding style

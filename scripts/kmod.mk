@@ -46,9 +46,21 @@ endif
 endif
 
 ifdef SAMPLE_SUPPORTED_ARCH
-eff_arch := $(if $(ARCH),$(ARCH),$(shell uname -m))
+ifneq ($(ARCH),)
+eff_arch := $(ARCH)
+else
+eff_arch := $(shell uname -m)
+eff_arch := $(patsubst i%86,x86,$(eff_arch))
+eff_arch := $(patsubst x86_64,x86,$(eff_arch))
+eff_arch := $(patsubst aarch64,arm64,$(eff_arch))
+eff_arch := $(patsubst armv%,arm,$(eff_arch))
+eff_arch := $(patsubst riscv%,riscv,$(eff_arch))
+eff_arch := $(patsubst ppc64le,powerpc,$(eff_arch))
+eff_arch := $(patsubst ppc%,powerpc,$(eff_arch))
+eff_arch := $(patsubst s390x,s390,$(eff_arch))
+endif
 ifeq ($(filter $(SAMPLE_SUPPORTED_ARCH),$(eff_arch)),)
-$(error $(SAMPLE) supports ARCH in [$(SAMPLE_SUPPORTED_ARCH)]; effective arch is $(eff_arch))
+$(error $(SAMPLE) supports ARCH in [$(SAMPLE_SUPPORTED_ARCH)] (kbuild ARCH names); effective arch is $(eff_arch))
 endif
 endif
 
