@@ -4,6 +4,10 @@ KVER          ?= $(shell uname -r)
 KDIR          ?= /lib/modules/$(KVER)/build
 ARCH          ?=
 CROSS_COMPILE ?=
+SIGN          ?= 1
+SIGN_KEY      ?= $(CURDIR)/MOK.priv
+SIGN_CERT     ?= $(CURDIR)/MOK.der
+SIGN_SCRIPT   := $(dir $(firstword $(MAKEFILE_LIST)))sign-module.sh
 
 ifeq ($(SAMPLE),)
 $(error SAMPLE is not set)
@@ -87,6 +91,9 @@ build:
 	@echo 'obj-m := $(mod).o' > $(src)/Kbuild
 	@$(if $(SAMPLE_OBJS),echo '$(mod)-objs := $(SAMPLE_OBJS)' >> $(src)/Kbuild)
 	$(MAKE) -C $(KDIR) $(KBUILD_ARGS) modules
+ifeq ($(SIGN),1)
+	@sh '$(SIGN_SCRIPT)' '$(KDIR)/scripts/sign-file' '$(SIGN_KEY)' '$(SIGN_CERT)' '$(src)/$(mod).ko'
+endif
 
 clean:
 	@echo 'obj-m := $(mod).o' > $(src)/Kbuild

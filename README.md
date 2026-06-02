@@ -190,11 +190,18 @@ Use a `sample.mk` only for a multi-file module or special build requirements
 ### Running the build
 
 ```
-make                       # build every registered sample
+make                       # build (and sign) every registered sample
 make <theme>/<sample>      # build one, e.g. make smp/percpu/percpu_parallel
+make <theme>/<sample> SIGN=0   # build that sample without signing
 make clean                 # clean every registered sample
 make list                  # list registered samples
 ```
+
+`make` signs each built module by default, generating a local key
+(`MOK.priv`/`MOK.der`, git-ignored) on first build; that key is what lets the
+module load under Secure Boot once enrolled (see "Loading under Secure Boot").
+On a non-Secure-Boot system the signature is harmless. Pass `SIGN=0` to skip
+signing (also the graceful fallback if `openssl`/`sign-file` are unavailable).
 
 ### Targeting another kernel or architecture
 
@@ -259,25 +266,18 @@ crashes the host.
 #### Loading under Secure Boot (without turning it off)
 
 On a Secure Boot system the kernel runs in lockdown and rejects unsigned
-out-of-tree modules. You do **not** have to disable Secure Boot — sign the module
-with your own Machine Owner Key (MOK):
+out-of-tree modules. You do **not** have to disable Secure Boot: `make` already
+signs the module (above) with a local key, so you only have to make the system
+trust that key once:
 
 ```
-# 1. Create a local signing key (once)
-openssl req -new -x509 -newkey rsa:2048 -nodes -days 36500 \
-    -keyout MOK.priv -outform DER -out MOK.der -subj "/CN=local module signing/"
-
-# 2. Enroll the public key (once); reboot, then confirm in the blue MOK manager
-sudo mokutil --import MOK.der
-
-# 3. Sign the freshly built module (re-sign after every rebuild)
-sudo /lib/modules/$(uname -r)/build/scripts/sign-file \
-    sha256 MOK.priv MOK.der smp/percpu/percpu_parallel.ko
+sudo mokutil --import MOK.der    # set a one-time password
+# reboot, then choose "Enroll MOK" in the blue manager and enter the password
 ```
 
-Once the key is enrolled and the module is signed, `insmod` accepts it under
-Secure Boot. Signing only fixes *loadability* — the crash risk is unchanged, so
-still prefer the VM above.
+After the key is enrolled, the signed module loads under Secure Boot with no
+further steps (just re-run `make` after any change to re-sign). Signing only
+fixes *loadability* — the crash risk is unchanged, so still prefer the VM above.
 
 #### Why no prebuilt `.ko` is shipped
 
