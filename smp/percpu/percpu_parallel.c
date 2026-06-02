@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: 0BSD
+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/printk.h>
@@ -19,7 +21,7 @@ static void percpu_parallel_work(unsigned int cpu)
 	long val = this_cpu_read(counter);
 
 	this_cpu_inc(counter);
-	pr_info("percpu/parallel: cpu%u=%ld\n", cpu, val);
+	pr_info("cpu%u=%ld\n", cpu, val);
 }
 
 static int percpu_parallel_should_run(unsigned int cpu)
@@ -37,14 +39,14 @@ static struct smp_hotplug_thread percpu_parallel_thread = {
 	.store = &thread,
 	.thread_should_run = percpu_parallel_should_run,
 	.thread_fn = percpu_parallel_worker,
-	.thread_comm = "parallel/%u",
+	.thread_comm = "percpu_parallel/%u",
 };
 
 static int __init percpu_parallel_init(void)
 {
 	unsigned int cpu;
 
-	pr_info("percpu/parallel: started interval=%ums\n", INTERVAL_MS);
+	pr_info("started interval=%ums\n", INTERVAL_MS);
 
 	for_each_possible_cpu(cpu) {
 		per_cpu(counter, cpu) = (long)(cpu + 1) * 100;
@@ -56,7 +58,7 @@ static int __init percpu_parallel_init(void)
 static void __exit percpu_parallel_exit(void)
 {
 	smpboot_unregister_percpu_thread(&percpu_parallel_thread);
-	pr_info("percpu/parallel: stopped\n");
+	pr_info("stopped\n");
 }
 
 module_init(percpu_parallel_init);

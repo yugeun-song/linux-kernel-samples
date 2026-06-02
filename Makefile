@@ -9,7 +9,7 @@ CROSS_COMPILE ?=
 DRIVER  := scripts/kmod.mk
 
 SAMPLES := \
-	smp/percpu/parallel
+	smp/percpu/percpu_parallel
 
 PASS := KVER='$(KVER)' KDIR='$(KDIR)'
 ifneq ($(ARCH),)

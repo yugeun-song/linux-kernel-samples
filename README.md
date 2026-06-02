@@ -38,7 +38,7 @@ likely/unlikely, ...). Directories are created on demand as samples are added.
 A sample is a single `.c` file under its theme, optionally grouped in a topic
 sub-folder: `<theme>/[<group>/]<name>.c`. The module is named after the source
 file (`<name>.ko`), and related samples share a topic folder (e.g.
-`smp/percpu/parallel.c`), mirroring the kernel's own `samples/` layout. A sample
+`smp/percpu/percpu_parallel.c`), mirroring the kernel's own `samples/` layout. A sample
 documents itself by printing to the kernel log, so `dmesg` after `insmod` is the
 explanation.
 
@@ -164,7 +164,7 @@ the `SAMPLES` list in the top-level `Makefile`:
 
 ```make
 SAMPLES := \
-	smp/percpu/parallel
+	smp/percpu/percpu_parallel
 ```
 
 Use a `sample.mk` only for a multi-file module or special build requirements
@@ -174,7 +174,7 @@ Use a `sample.mk` only for a multi-file module or special build requirements
 
 ```
 make                       # build every registered sample
-make <theme>/<sample>      # build one, e.g. make smp/percpu/parallel
+make <theme>/<sample>      # build one, e.g. make smp/percpu/percpu_parallel
 make clean                 # clean every registered sample
 make list                  # list registered samples
 ```
@@ -204,9 +204,9 @@ CROSS_COMPILE := aarch64-linux-gnu-
 ### Loading and observing
 
 ```
-sudo insmod smp/percpu/parallel.ko   # the .ko sits next to its source
+sudo insmod smp/percpu/percpu_parallel.ko   # the .ko sits next to its source
 dmesg | tail
-sudo rmmod parallel
+sudo rmmod percpu_parallel
 ```
 
 Loading a module runs privileged code in your running kernel: do it on a
