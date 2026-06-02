@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: 0BSD
 KVER          ?= $(shell uname -r)
 KDIR          ?= /lib/modules/$(KVER)/build
 ARCH          ?=
@@ -8,7 +9,7 @@ CROSS_COMPILE ?=
 DRIVER  := scripts/kmod.mk
 
 SAMPLES := \
-	smp/percpu_parallel
+	smp/percpu/parallel
 
 PASS := KVER='$(KVER)' KDIR='$(KDIR)'
 ifneq ($(ARCH),)

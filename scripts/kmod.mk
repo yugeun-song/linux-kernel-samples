@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: 0BSD
 SAMPLE        ?=
 KVER          ?= $(shell uname -r)
 KDIR          ?= /lib/modules/$(KVER)/build
@@ -8,7 +9,7 @@ ifeq ($(SAMPLE),)
 $(error SAMPLE is not set)
 endif
 
-src := $(abspath $(SAMPLE))
+src := $(abspath $(dir $(SAMPLE)))
 
 -include $(src)/sample.mk
 

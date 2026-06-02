@@ -7,7 +7,7 @@ module you build, `insmod`, observe in `dmesg`, and `rmmod`.
 The build system, coding-style configuration, and conventions are in place;
 sample modules are added on demand.
 The sections below double as study notes and as context for any tooling
-(including future Claude Code sessions) that needs to understand how the repo is
+(including AI assistant) that needs to understand how the repo is
 built and how a sample is composed.
 
 ## Layout
@@ -35,9 +35,12 @@ best represents that theme (its "primary owner"). Cross-cutting primitives with
 no owner go in `lib/` (data structures) or `core/` (container_of, kref, ERR_PTR,
 likely/unlikely, ...). Directories are created on demand as samples are added.
 
-A sample lives at `<theme>/<sample>/<sample>.c` — the module source is named
-after its directory. A sample documents itself by printing to the kernel log,
-so `dmesg` after `insmod` is the explanation.
+A sample is a single `.c` file under its theme, optionally grouped in a topic
+sub-folder: `<theme>/[<group>/]<name>.c`. The module is named after the source
+file (`<name>.ko`), and related samples share a topic folder (e.g.
+`smp/percpu/parallel.c`), mirroring the kernel's own `samples/` layout. A sample
+documents itself by printing to the kernel log, so `dmesg` after `insmod` is the
+explanation.
 
 Samples are registered explicitly, the way the kernel lists every object in its
 Kbuild files: there is no globbing. The top-level `Makefile` holds a `SAMPLES`
@@ -52,6 +55,7 @@ A kernel module is not a `main()` program. It is object code linked into the
 running kernel, exposing two hooks the module loader calls. The minimal shape:
 
 ```c
+// SPDX-License-Identifier: 0BSD
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -85,9 +89,13 @@ Why each piece exists:
   the kernel rather than loaded.
 - `pr_info` and friends write to the kernel ring buffer (`dmesg`). There is no
   stdout in kernel space, so this is how a sample shows what it does.
-- `MODULE_LICENSE("GPL")` declares the license: a non-GPL string taints the
-  kernel and blocks access to GPL-only exported symbols. `MODULE_AUTHOR` and
-  `MODULE_DESCRIPTION` are metadata readable with `modinfo`.
+- `// SPDX-License-Identifier: 0BSD` on the first line is the file's copyright
+  license — 0BSD: use, modify, and redistribute freely, no attribution required
+  (full text in `LICENSE`). The tag rides with the file if a sample is copied out.
+- `MODULE_LICENSE("GPL")` is the kernel-runtime tag, distinct from the SPDX
+  copyright line: a non-GPL string taints the kernel and blocks access to
+  GPL-only exported symbols, so it stays `"GPL"` to keep e.g. the kthread API
+  usable. `MODULE_AUTHOR` and `MODULE_DESCRIPTION` are `modinfo` metadata.
 
 ## Build pipeline (how it works, and why)
 
@@ -123,12 +131,12 @@ make <theme>/<sample>
   |    - -include config.mk   (optional, PC-local persistent target)
   |
   +- scripts/kmod.mk   (per-sample driver; one recursive make per sample)
-       - -include <sample>/sample.mk   (optional requirements)
-       - module source: <sample>.c, or the objects sample.mk declares
+       - -include <topic dir>/sample.mk   (optional requirements)
+       - module source: <name>.c, or the objects sample.mk declares
        - preflight: $(error) and stop if the target is unsupported
-       - generates <sample>/Kbuild  (obj-m := <name>.o), git-ignored
+       - generates <topic dir>/Kbuild  (obj-m := <name>.o), git-ignored
        |
-       +- make -C $(KDIR) [ARCH=.. CROSS_COMPILE=..] M=<abs sample> modules
+       +- make -C $(KDIR) [ARCH=.. CROSS_COMPILE=..] M=<abs topic dir> modules
             - kernel build: CC -> MODPOST -> CC mod.o -> LD .ko -> BTF
 ```
 
@@ -138,9 +146,9 @@ make <theme>/<sample>
   module sources, userspace helpers, and generated files share a directory
   safely.
 - **One entry point.** The top `Makefile` is the only thing you run. The
-  per-sample `Kbuild` is a one-line `obj-m` manifest that kbuild's `M=` interface
-  requires, so it is generated at build time rather than committed — the repo
-  tracks only `.c`.
+  generated `Kbuild` is a one-line `obj-m` manifest that kbuild's `M=` interface
+  requires, so it is created at build time rather than committed (the repo tracks
+  sources and the build/doc files, never generated artifacts).
 - **Hard-fail preflight.** Before invoking the kernel build, the driver stops
   with `$(error ...)` when: the kernel build tree is missing, a requested cross
   compiler is absent, a sample's required `CONFIG` is off, the arch is
@@ -151,13 +159,12 @@ make <theme>/<sample>
 ### Registering a sample
 
 A sample is built only when it is listed, mirroring the kernel's per-directory
-`obj-m`. Add the source at `<theme>/<sample>/<sample>.c`, then add the sample to
+`obj-m`. Add the source at `<theme>/[<group>/]<name>.c`, then add the sample to
 the `SAMPLES` list in the top-level `Makefile`:
 
 ```make
 SAMPLES := \
-	process/task_struct_fields \
-	interrupts/softirq_demo
+	smp/percpu/parallel
 ```
 
 Use a `sample.mk` only for a multi-file module or special build requirements
@@ -167,7 +174,7 @@ Use a `sample.mk` only for a multi-file module or special build requirements
 
 ```
 make                       # build every registered sample
-make <theme>/<sample>      # build one, e.g. make process/task_struct_fields
+make <theme>/<sample>      # build one, e.g. make smp/percpu/parallel
 make clean                 # clean every registered sample
 make list                  # list registered samples
 ```
@@ -197,10 +204,14 @@ CROSS_COMPILE := aarch64-linux-gnu-
 ### Loading and observing
 
 ```
-sudo insmod <theme>/<sample>/<sample>.ko
+sudo insmod smp/percpu/parallel.ko   # the .ko sits next to its source
 dmesg | tail
-sudo rmmod <sample>
+sudo rmmod parallel
 ```
+
+Loading a module runs privileged code in your running kernel: do it on a
+disposable / VM / dev kernel, and note that Secure Boot may reject an unsigned
+out-of-tree module.
 
 ## Per-sample build contract (`sample.mk`)
 
@@ -209,7 +220,7 @@ nothing but its `.c`. Recognized variables:
 
 | variable | meaning |
 |----------|---------|
-| `SAMPLE_MODULE` | module name when it differs from the sample directory name |
+| `SAMPLE_MODULE` | module name when it differs from the source file basename |
 | `SAMPLE_OBJS` | object list for a multi-file module (`a.o b.o`) |
 | `SAMPLE_REQUIRED_CONFIGS` | kernel configs that must be `=y`/`=m` (e.g. `CONFIG_KPROBES`) |
 | `SAMPLE_SUPPORTED_ARCH` | allowed arches (e.g. `x86 x86_64`) |
