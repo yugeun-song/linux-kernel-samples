@@ -1,5 +1,22 @@
 # linux-kernel-samples
 
+> **DISCLAIMER — read this before you build or load anything here.**
+>
+> These are **out-of-tree Linux kernel modules** written for learning. A kernel
+> module runs in kernel space with full privileges, so a single bug can take down
+> the **entire machine**, not just one process.
+>
+> **Do NOT load these on your host / daily-driver OS.** Use a throwaway virtual
+> machine or a spare/dev kernel you can afford to crash — not a system whose data
+> or uptime you care about.
+>
+> **No warranty, no liability.** The code is provided strictly "as is" under 0BSD
+> (see [`LICENSE`](LICENSE)). The author accepts **no responsibility whatsoever**
+> for any damage or loss of any kind, including without limitation: security
+> compromise, kernel panic or hang, data loss or filesystem corruption, hardware
+> damage, a tainted or lockdown-restricted kernel, or a system left unbootable.
+> **You build, load, and run these modules entirely at your own risk.**
+
 Runnable Linux kernel modules for learning the kernel by doing. Each sample
 isolates one **main theme** — a struct, function, or macro — as a loadable
 module you build, `insmod`, observe in `dmesg`, and `rmmod`.
@@ -203,15 +220,71 @@ CROSS_COMPILE := aarch64-linux-gnu-
 
 ### Loading and observing
 
+Build prerequisites: matching kernel headers (`linux-headers-$(uname -r)` on
+Debian/Ubuntu, `kernel-devel` on Fedora), a C toolchain (`build-essential` or
+`@development-tools`), and root to load.
+
+Compiling is harmless; only **loading** is dangerous. The recommended path for
+everyone — and the only sane path for a newcomer — is a throwaway VM (next
+section). To load directly on the running kernel, only on a machine you can
+afford to crash:
+
 ```
 sudo insmod smp/percpu/percpu_parallel.ko   # the .ko sits next to its source
 dmesg | tail
 sudo rmmod percpu_parallel
 ```
 
-Loading a module runs privileged code in your running kernel: do it on a
-disposable / VM / dev kernel, and note that Secure Boot may reject an unsigned
-out-of-tree module.
+#### Try it safely in a VM (no host risk)
+
+A module can only be loaded *into a kernel*, so the only safe way to test one is
+to give it a disposable kernel — a virtual machine. Containers (Docker, Podman,
+Fedora toolbox) do **not** help: they share the host kernel, so a bug still
+crashes the host.
+
+- **Beginner-friendly:** launch a throwaway Ubuntu/Fedora VM (`multipass`, GNOME
+  Boxes, virt-manager, or VirtualBox), install the prerequisites inside it, then
+  run the normal `make` + `insmod` + `dmesg` + `rmmod` there. If it crashes, you
+  just discard the VM.
+- **Fastest for kernel work:** [virtme-ng] (`vng`) boots your *current* kernel in
+  a QEMU VM in seconds, with this directory available and no disk image to build.
+  Install it (`sudo apt install qemu-system-x86 virtme-ng` on Ubuntu, `sudo dnf
+  install qemu-system-x86 virtme-ng` on Fedora), run `vng` from the repo to get a
+  throwaway VM on your own kernel, and do the normal `make` + `insmod` + `dmesg` +
+  `rmmod` inside it. vermagic matches (same kernel), so no signing is needed, and a
+  panic only kills the VM. See its docs for one-shot `vng -- <cmd>` usage.
+
+[virtme-ng]: https://github.com/arighi/virtme-ng
+
+#### Loading under Secure Boot (without turning it off)
+
+On a Secure Boot system the kernel runs in lockdown and rejects unsigned
+out-of-tree modules. You do **not** have to disable Secure Boot — sign the module
+with your own Machine Owner Key (MOK):
+
+```
+# 1. Create a local signing key (once)
+openssl req -new -x509 -newkey rsa:2048 -nodes -days 36500 \
+    -keyout MOK.priv -outform DER -out MOK.der -subj "/CN=local module signing/"
+
+# 2. Enroll the public key (once); reboot, then confirm in the blue MOK manager
+sudo mokutil --import MOK.der
+
+# 3. Sign the freshly built module (re-sign after every rebuild)
+sudo /lib/modules/$(uname -r)/build/scripts/sign-file \
+    sha256 MOK.priv MOK.der smp/percpu/percpu_parallel.ko
+```
+
+Once the key is enrolled and the module is signed, `insmod` accepts it under
+Secure Boot. Signing only fixes *loadability* — the crash risk is unchanged, so
+still prefer the VM above.
+
+#### Why no prebuilt `.ko` is shipped
+
+A `.ko` is bound to the exact kernel it was built against (its "vermagic"), so it
+loads only there — which is why this repo ships **source** and builds per kernel.
+The in-kernel API is also not stable across versions, so a sample may need
+rebuilding (or a small fix) on a very different kernel.
 
 ## Per-sample build contract (`sample.mk`)
 
