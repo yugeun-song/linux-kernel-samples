@@ -22,6 +22,7 @@ endif
 SUBMAKE = $(MAKE) -f $(DRIVER) $(PASS)
 
 .PHONY: all clean list $(SAMPLES)
+.NOTPARALLEL:
 
 all: $(SAMPLES)
 
