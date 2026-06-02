@@ -34,10 +34,10 @@ static void percpu_parallel_worker(unsigned int cpu)
 }
 
 static struct smp_hotplug_thread percpu_parallel_thread = {
-	.store			= &thread,
-	.thread_should_run	= percpu_parallel_should_run,
-	.thread_fn		= percpu_parallel_worker,
-	.thread_comm		= "parallel/%u",
+	.store = &thread,
+	.thread_should_run = percpu_parallel_should_run,
+	.thread_fn = percpu_parallel_worker,
+	.thread_comm = "parallel/%u",
 };
 
 static int __init percpu_parallel_init(void)

@@ -54,7 +54,7 @@ ReflowComments: false
 # --- Pointers, spacing, alignment ---
 PointerAlignment: Right
 DerivePointerAlignment: false
-SpaceBeforeParens: ControlStatements
+SpaceBeforeParens: ControlStatementsExceptControlMacros
 SpaceAfterCStyleCast: false
 SpacesInParentheses: false
 SpacesInSquareBrackets: false
