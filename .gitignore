@@ -21,10 +21,14 @@ Kbuild
 # ---- PC-local build target config (not part of the repo) ----
 config.mk
 
-# ---- Local module-signing keys (generated on demand; never commit) ----
-MOK.priv
-MOK.der
+# ---- Local module-signing key material (generated on demand; never commit) ----
+MOK.*
+signing_key.*
 *.priv
+*.key
+*.pem
+*.der
+*.x509
 
 # ---- clangd / LSP ----
 compile_commands.json
