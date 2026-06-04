@@ -15,6 +15,7 @@ SAMPLES := \
 	interrupts/deferred/bh_workqueue \
 	interrupts/deferred/workqueue \
 	interrupts/deferred/threaded_irq \
+	interrupts/softirq/timer_softirq \
 	interrupts/danger/sleep_in_hardirq_danger \
 	interrupts/danger/sleep_in_softirq_danger
 

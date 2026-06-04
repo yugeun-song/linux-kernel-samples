@@ -242,9 +242,10 @@ dmesg | tail
 sudo rmmod percpu_parallel
 ```
 
-Some samples run on load: the per-cpu one starts its kthreads, and the interrupt
-samples fire one simulated irq. Only the danger samples wait to be enabled and
-fired by hand, as the next section describes.
+Some samples run on load: the per-cpu one starts its kthreads, the interrupt
+samples fire one simulated irq, and the timer softirq sample ticks every second
+until `rmmod`. Only the danger samples wait to be enabled and fired by hand, as
+the next section describes.
 
 #### Interrupt samples: load fires once, dmesg shows the flow
 
@@ -264,6 +265,14 @@ softirq context (no sleeping, `GFP_ATOMIC` only), while `workqueue` and
 `threaded_irq` run in process context (sleeping and `GFP_KERNEL` allowed). The
 log lines name the context each half runs in and which allocations are legal
 there, so `dmesg` is the lesson.
+
+The `interrupts/softirq/` sample fills the softirq slot the only way module code
+can: a module cannot register a softirq of its own (the vector table is fixed at
+compile time and `open_softirq` is not exported), so `timer_softirq` owns only a
+bottom half — a `timer_list` callback running in `TIMER_SOFTIRQ` context — while
+its top half is the kernel's own timer-tick interrupt, a hardware event present
+on every machine regardless of architecture or board. It logs one line per
+expiry until `rmmod`.
 
 The `interrupts/danger/` samples deliberately perform an **illegal** operation —
 sleeping in atomic (hardirq/softirq) context — to show what must never be done.
