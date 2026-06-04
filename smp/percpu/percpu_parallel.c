@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: 0BSD
-#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+#define pr_fmt(fmt) KBUILD_MODNAME ": %s() - " fmt, __func__
 
 #include <linux/module.h>
-#include <linux/kernel.h>
-#include <linux/printk.h>
 #include <linux/init.h>
+#include <linux/printk.h>
 #include <linux/percpu.h>
 #include <linux/cpumask.h>
 #include <linux/sched.h>
@@ -65,6 +64,5 @@ module_init(percpu_parallel_init);
 module_exit(percpu_parallel_exit);
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Yugeun Song");
-MODULE_DESCRIPTION("Per-CPU kthreads (one per CPU) each updating only its own per-CPU counter lock-free; hotplug- and suspend/resume-safe via the smpboot per-CPU thread infrastructure");
+MODULE_DESCRIPTION("Per-CPU counters incremented lock-free by one smpboot kthread per CPU");
 MODULE_VERSION("1.0");
