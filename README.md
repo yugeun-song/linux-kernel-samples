@@ -23,9 +23,8 @@ module you build, `insmod`, observe in `dmesg`, and `rmmod`.
 
 The build system, coding-style configuration, and conventions are in place;
 sample modules are added on demand.
-The sections below double as study notes and as context for any tooling
-(including AI assistant) that needs to understand how the repo is
-built and how a sample is composed.
+The sections below double as study notes and as context for anyone that needs
+to understand how the repo is built and how a sample is composed.
 
 ## Layout
 
@@ -195,6 +194,7 @@ make <theme>/<sample>      # build one, e.g. make smp/percpu/percpu_parallel
 make <theme>/<sample> SIGN=0   # build that sample without signing
 make clean                 # clean every registered sample
 make list                  # list registered samples
+make tags                  # ctags index for editor jumps (also: make cscope)
 ```
 
 `make` signs each built module by default, generating a local key
@@ -241,6 +241,47 @@ sudo insmod smp/percpu/percpu_parallel.ko   # the .ko sits next to its source
 dmesg | tail
 sudo rmmod percpu_parallel
 ```
+
+Some samples run on load: the per-cpu one starts its kthreads, and the interrupt
+samples fire one simulated irq. Only the danger samples wait to be enabled and
+fired by hand, as the next section describes.
+
+#### Interrupt samples: load fires once, dmesg shows the flow
+
+The samples under `interrupts/` set up a simulated irq (via `CONFIG_IRQ_SIM`)
+and fire it **once at load**, so `dmesg` right after `insmod` shows the whole
+top-half/bottom-half flow:
+
+```
+sudo insmod interrupts/hardirq/hardirq.ko
+dmesg | tail
+sudo rmmod hardirq
+```
+
+The `interrupts/deferred/` samples share the same hardirq top half but defer the
+work to a different bottom-half mechanism — `tasklet` and `bh_workqueue` run in
+softirq context (no sleeping, `GFP_ATOMIC` only), while `workqueue_demo` and
+`threaded_irq` run in process context (sleeping and `GFP_KERNEL` allowed). The
+log lines name the context each half runs in and which allocations are legal
+there, so `dmesg` is the lesson.
+
+The `interrupts/danger/` samples deliberately perform an **illegal** operation —
+sleeping in atomic (hardirq/softirq) context — to show what must never be done.
+Because that must never fire by accident, these are the **only** samples with a
+debugfs control, and they stay inert until you explicitly enable them. A plain
+load does nothing dangerous; you arm and fire by hand:
+
+```
+sudo insmod interrupts/danger/sleep_in_hardirq_danger.ko
+echo 1 | sudo tee /sys/kernel/debug/sleep_in_hardirq_danger/danger_enabled
+echo 1 | sudo tee /sys/kernel/debug/sleep_in_hardirq_danger/trigger
+dmesg | tail
+sudo rmmod sleep_in_hardirq_danger
+```
+
+Without the `danger_enabled` step, `trigger` takes a safe mock path that only
+logs that the dangerous work was skipped. The enabled path can hang or crash the
+machine, so do this **only in a throwaway VM**.
 
 #### Try it safely in a VM (no host risk)
 
