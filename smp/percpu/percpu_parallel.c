@@ -15,7 +15,7 @@
 static DEFINE_PER_CPU(long, counter);
 static DEFINE_PER_CPU(struct task_struct *, thread);
 
-static void percpu_parallel_work(unsigned int cpu)
+static void percpu_parallel_read_and_inc(unsigned int cpu)
 {
 	long val = this_cpu_read(counter);
 
@@ -31,7 +31,7 @@ static int percpu_parallel_should_run(unsigned int cpu)
 
 static void percpu_parallel_worker(unsigned int cpu)
 {
-	percpu_parallel_work(cpu);
+	percpu_parallel_read_and_inc(cpu);
 	schedule_timeout_interruptible(msecs_to_jiffies(INTERVAL_MS));
 }
 
