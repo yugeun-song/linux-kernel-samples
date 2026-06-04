@@ -14,13 +14,14 @@ $(error SAMPLE is not set)
 endif
 
 src := $(abspath $(dir $(SAMPLE)))
+src_base := $(notdir $(SAMPLE))
 
 -include $(src)/sample.mk
 
 ifdef SAMPLE_MODULE
 mod := $(SAMPLE_MODULE)
 else
-mod := $(notdir $(SAMPLE))
+mod := $(src_base)
 endif
 
 KBUILD_ARGS := M=$(src)
@@ -34,8 +35,8 @@ endif
 ifneq ($(filter build,$(MAKECMDGOALS)),)
 
 ifndef SAMPLE_OBJS
-ifeq ($(wildcard $(src)/$(mod).c),)
-$(error $(SAMPLE): expected module source $(mod).c (set SAMPLE_MODULE/SAMPLE_OBJS in sample.mk))
+ifeq ($(wildcard $(src)/$(src_base).c),)
+$(error $(SAMPLE): expected module source $(src_base).c (set SAMPLE_OBJS in sample.mk))
 endif
 endif
 
@@ -89,7 +90,7 @@ endif
 
 build:
 	@echo 'obj-m := $(mod).o' > $(src)/Kbuild
-	@$(if $(SAMPLE_OBJS),echo '$(mod)-objs := $(SAMPLE_OBJS)' >> $(src)/Kbuild)
+	@$(if $(SAMPLE_OBJS),echo '$(mod)-objs := $(SAMPLE_OBJS)' >> $(src)/Kbuild,$(if $(filter-out $(mod),$(src_base)),echo '$(mod)-objs := $(src_base).o' >> $(src)/Kbuild,:))
 	$(MAKE) -C $(KDIR) $(KBUILD_ARGS) modules
 ifeq ($(SIGN),1)
 	@sh '$(SIGN_SCRIPT)' '$(KDIR)/scripts/sign-file' '$(SIGN_KEY)' '$(SIGN_CERT)' '$(src)/$(mod).ko'
