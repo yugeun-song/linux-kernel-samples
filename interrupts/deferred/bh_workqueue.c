@@ -19,7 +19,7 @@ static struct irq_domain *sim_domain;
 static struct workqueue_struct *bh_wq;
 static unsigned int virq;
 
-static void bh_work_fn(struct work_struct *work)
+static void bh_workqueue_bottom_half(struct work_struct *work)
 {
 	void *buf;
 
@@ -35,9 +35,9 @@ static void bh_work_fn(struct work_struct *work)
 	pr_info("GFP_ATOMIC kmalloc ok; a BH work runs in softirq, so sleeping is still forbidden\n");
 }
 
-static DECLARE_WORK(bottom_half, bh_work_fn);
+static DECLARE_WORK(bottom_half, bh_workqueue_bottom_half);
 
-static irqreturn_t hardirq_handler(int irq, void *dev_id)
+static irqreturn_t bh_workqueue_top_half(int irq, void *dev_id)
 {
 	pr_info("top half (hardirq); queueing the BH-workqueue bottom half\n");
 	queue_work(bh_wq, &bottom_half);
@@ -68,7 +68,7 @@ static int __init bh_workqueue_init(void)
 		goto err_remove_sim;
 	}
 
-	ret = request_irq(virq, hardirq_handler, 0, KBUILD_MODNAME, NULL);
+	ret = request_irq(virq, bh_workqueue_top_half, 0, KBUILD_MODNAME, NULL);
 	if (ret) {
 		pr_err("request_irq failed: %d\n", ret);
 		goto err_dispose_mapping;

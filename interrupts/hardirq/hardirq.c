@@ -17,7 +17,7 @@
 static struct irq_domain *sim_domain;
 static unsigned int virq;
 
-static irqreturn_t hardirq_handler(int irq, void *dev_id)
+static irqreturn_t hardirq_top_half(int irq, void *dev_id)
 {
 	void *buf;
 
@@ -53,7 +53,7 @@ static int __init hardirq_init(void)
 		goto err_remove_sim;
 	}
 
-	ret = request_irq(virq, hardirq_handler, 0, KBUILD_MODNAME, NULL);
+	ret = request_irq(virq, hardirq_top_half, 0, KBUILD_MODNAME, NULL);
 	if (ret) {
 		pr_err("request_irq failed: %d\n", ret);
 		goto err_dispose_mapping;

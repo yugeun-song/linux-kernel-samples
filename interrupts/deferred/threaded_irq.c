@@ -18,13 +18,13 @@
 static struct irq_domain *sim_domain;
 static unsigned int virq;
 
-static irqreturn_t hardirq_top_half(int irq, void *dev_id)
+static irqreturn_t threaded_irq_top_half(int irq, void *dev_id)
 {
 	pr_info("top half (hardirq); waking the irq thread for the bottom half\n");
 	return IRQ_WAKE_THREAD;
 }
 
-static irqreturn_t threaded_bottom_half(int irq, void *dev_id)
+static irqreturn_t threaded_irq_bottom_half(int irq, void *dev_id)
 {
 	void *buf;
 
@@ -63,7 +63,7 @@ static int __init threaded_irq_init(void)
 		goto err_remove_sim;
 	}
 
-	ret = request_threaded_irq(virq, hardirq_top_half, threaded_bottom_half,
+	ret = request_threaded_irq(virq, threaded_irq_top_half, threaded_irq_bottom_half,
 				   IRQF_ONESHOT, KBUILD_MODNAME, NULL);
 	if (ret) {
 		pr_err("request_threaded_irq failed: %d\n", ret);

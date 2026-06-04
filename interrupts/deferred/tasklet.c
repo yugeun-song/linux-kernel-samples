@@ -34,7 +34,7 @@ static void tasklet_bottom_half(struct tasklet_struct *t)
 	pr_info("GFP_ATOMIC kmalloc ok; sleeping (GFP_KERNEL/msleep) is still forbidden in softirq\n");
 }
 
-static irqreturn_t hardirq_handler(int irq, void *dev_id)
+static irqreturn_t tasklet_top_half(int irq, void *dev_id)
 {
 	pr_info("top half (hardirq); scheduling the tasklet bottom half\n");
 	tasklet_schedule(&bottom_half);
@@ -61,7 +61,7 @@ static int __init tasklet_sample_init(void)
 		goto err_remove_sim;
 	}
 
-	ret = request_irq(virq, hardirq_handler, 0, KBUILD_MODNAME, NULL);
+	ret = request_irq(virq, tasklet_top_half, 0, KBUILD_MODNAME, NULL);
 	if (ret) {
 		pr_err("request_irq failed: %d\n", ret);
 		goto err_dispose_mapping;
