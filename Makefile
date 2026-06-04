@@ -9,7 +9,14 @@ CROSS_COMPILE ?=
 DRIVER  := scripts/kmod.mk
 
 SAMPLES := \
-	smp/percpu/percpu_parallel
+	smp/percpu/percpu_parallel \
+	interrupts/hardirq/hardirq \
+	interrupts/deferred/tasklet \
+	interrupts/deferred/bh_workqueue \
+	interrupts/deferred/workqueue_demo \
+	interrupts/deferred/threaded_irq \
+	interrupts/danger/sleep_in_hardirq_danger \
+	interrupts/danger/sleep_in_softirq_danger
 
 PASS := KVER='$(KVER)' KDIR='$(KDIR)'
 ifneq ($(ARCH),)
@@ -21,7 +28,7 @@ endif
 
 SUBMAKE = $(MAKE) -f $(DRIVER) $(PASS)
 
-.PHONY: all clean list $(SAMPLES)
+.PHONY: all clean list tags cscope $(SAMPLES)
 .NOTPARALLEL:
 
 all: $(SAMPLES)
@@ -34,3 +41,9 @@ clean:
 
 list:
 	@for s in $(SAMPLES); do echo "$$s"; done
+
+tags:
+	ctags -R --exclude=.git .
+
+cscope:
+	cscope -Rbq
