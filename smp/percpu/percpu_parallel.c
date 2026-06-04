@@ -25,6 +25,7 @@ static void percpu_parallel_work(unsigned int cpu)
 
 static int percpu_parallel_should_run(unsigned int cpu)
 {
+	pr_info("cpu%u -> run\n", cpu);
 	return 1;
 }
 
