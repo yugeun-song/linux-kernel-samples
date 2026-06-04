@@ -13,6 +13,9 @@
 #include <linux/preempt.h>
 #include <linux/workqueue.h>
 
+#define SIM_IRQ_LINES 1
+#define SIM_IRQ_HWIRQ 0
+
 static struct irq_domain *sim_domain;
 static struct workqueue_struct *proc_wq;
 static unsigned int virq;
@@ -55,14 +58,14 @@ static int __init workqueue_sample_init(void)
 		return -ENOMEM;
 	}
 
-	sim_domain = irq_domain_create_sim(NULL, 1);
+	sim_domain = irq_domain_create_sim(NULL, SIM_IRQ_LINES);
 	if (IS_ERR(sim_domain)) {
 		ret = PTR_ERR(sim_domain);
 		pr_err("irq_domain_create_sim failed: %d\n", ret);
 		goto err_destroy_wq;
 	}
 
-	virq = irq_create_mapping(sim_domain, 0);
+	virq = irq_create_mapping(sim_domain, SIM_IRQ_HWIRQ);
 	if (!virq) {
 		pr_err("irq_create_mapping failed\n");
 		ret = -ENODEV;
