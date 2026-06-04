@@ -45,7 +45,7 @@ static irqreturn_t hardirq_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static int __init workqueue_demo_init(void)
+static int __init workqueue_sample_init(void)
 {
 	int ret;
 
@@ -94,7 +94,7 @@ err_destroy_wq:
 	return ret;
 }
 
-static void __exit workqueue_demo_exit(void)
+static void __exit workqueue_sample_exit(void)
 {
 	free_irq(virq, NULL);
 	irq_dispose_mapping(virq);
@@ -103,8 +103,8 @@ static void __exit workqueue_demo_exit(void)
 	pr_info("unloaded\n");
 }
 
-module_init(workqueue_demo_init);
-module_exit(workqueue_demo_exit);
+module_init(workqueue_sample_init);
+module_exit(workqueue_sample_exit);
 
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("Workqueue bottom half in process context, where sleeping and GFP_KERNEL are allowed, fired once at load");

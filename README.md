@@ -260,7 +260,7 @@ sudo rmmod hardirq
 
 The `interrupts/deferred/` samples share the same hardirq top half but defer the
 work to a different bottom-half mechanism — `tasklet` and `bh_workqueue` run in
-softirq context (no sleeping, `GFP_ATOMIC` only), while `workqueue_demo` and
+softirq context (no sleeping, `GFP_ATOMIC` only), while `workqueue` and
 `threaded_irq` run in process context (sleeping and `GFP_KERNEL` allowed). The
 log lines name the context each half runs in and which allocations are legal
 there, so `dmesg` is the lesson.
