@@ -37,7 +37,7 @@ SAMPLES := \
 	interrupts/deferred/tcp_softirq_log \
 	interrupts/danger/sleep_in_hardirq_danger \
 	interrupts/danger/sleep_in_softirq_danger \
-	interrupts/concurrency/shared_counter
+	interrupts/concurrency/interrupt_competition
 
 PASS := KVER='$(KVER)' KDIR='$(KDIR)'
 ifneq ($(ARCH),)
