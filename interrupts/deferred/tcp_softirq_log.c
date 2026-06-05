@@ -72,6 +72,13 @@ static void __exit tcp_softirq_exit(void)
 	pr_info("exit: in_hardirq=%s in_softirq=%s in_task=%s\n",
 		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N",
 		in_task() ? "Y" : "N");
+	/*
+	 * nf_unregister_net_hook() unlinks the hook and then synchronize_net()s:
+	 * it waits for any hook still running on another CPU to finish before
+	 * returning. So once it returns, tcp_softirq_hook can no longer be entered,
+	 * and the module unloads with no use-after-free even if packets were
+	 * arriving during rmmod -- hence no extra teardown is needed.
+	 */
 	nf_unregister_net_hook(&init_net, &tcp_hook);
 	pr_info("unloaded; seen=%lu captured=%lu\n", atomic_long_read(&seen),
 		atomic_long_read(&captured));
