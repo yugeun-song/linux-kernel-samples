@@ -285,6 +285,16 @@ localhost is enough); the module never creates packets itself. The log lines
 name the context each half runs in and which allocations are legal there, so
 `dmesg` is the lesson.
 
+The `interrupts/concurrency/shared_counter` sample guards a counter shared by a
+hardirq top half and a softirq bottom half with one `spin_lock_irqsave()`, which
+defends all three re-entrancy cases: the same hardirq line re-firing (genirq
+serializes it), the same handler on another CPU (it spins on the lock), and a
+hardirq nesting over a softirq (the lock holds local IRQs off). It also contrasts
+a serialized burst (raised in a row from process context — every raise delivered,
+so the hardirq runs N times in order) with a coalesced flood (raised from all
+CPUs at once via `on_each_cpu` — the IPI storm merges into far fewer hardirqs);
+the counter stays gap-free either way, and every log line names the CPU it ran on.
+
 The `interrupts/danger/` samples deliberately perform an **illegal** operation —
 sleeping in atomic (hardirq/softirq) context — to show what must never be done.
 Because that must never fire by accident, these are the **only** samples with a
