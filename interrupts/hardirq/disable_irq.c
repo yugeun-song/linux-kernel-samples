@@ -17,6 +17,12 @@
 static struct irq_domain *sim_domain;
 static unsigned int virq;
 
+/*
+ * This "top half" actually runs in softirq, not hardirq: the irq is raised while
+ * masked, and enable_irq() re-delivers it via software resend. irq_sim has no
+ * hardware retrigger (CONFIG_HARDIRQS_SW_RESEND), and that resend path runs in
+ * softirq -- so the handler logs in_softirq=Y.
+ */
 static irqreturn_t disable_irq_top_half(int irq, void *dev_id)
 {
 	pr_info("top half: in_hardirq=%s in_softirq=%s in_task=%s\n",
