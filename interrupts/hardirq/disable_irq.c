@@ -21,6 +21,7 @@ static irqreturn_t disable_irq_top_half(int irq, void *dev_id)
 {
 	pr_info("top half: in_hardirq=%s in_softirq=%s in_task=%s\n",
 		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
+	pr_info("delivered by software resend from enable_irq (irq_sim has no hardware retrigger), so this runs in softirq, not hardirq\n");
 	pr_info("handler ran -> IRQ_HANDLED\n");
 	return IRQ_HANDLED;
 }
