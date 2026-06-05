@@ -76,11 +76,22 @@ $(error $(SAMPLE): required kernel configs not enabled in $(KDIR): $(missing))
 endif
 endif
 
-ifdef SAMPLE_MIN_KVER
+ifneq ($(SAMPLE_MIN_KVER)$(SAMPLE_MAX_KVER),)
 target_rel := $(shell cat $(KDIR)/include/config/kernel.release 2>/dev/null)
-lowest := $(shell printf '%s\n%s\n' '$(SAMPLE_MIN_KVER)' '$(target_rel)' | sort -V | head -n1)
+target_mm := $(shell printf '%s' '$(target_rel)' | grep -oE '^[0-9]+\.[0-9]+')
+endif
+
+ifdef SAMPLE_MIN_KVER
+lowest := $(shell printf '%s\n%s\n' '$(SAMPLE_MIN_KVER)' '$(target_mm)' | sort -V | head -n1)
 ifneq ($(lowest),$(SAMPLE_MIN_KVER))
 $(error $(SAMPLE) requires kernel >= $(SAMPLE_MIN_KVER); target kernel is $(target_rel))
+endif
+endif
+
+ifdef SAMPLE_MAX_KVER
+highest := $(shell printf '%s\n%s\n' '$(SAMPLE_MAX_KVER)' '$(target_mm)' | sort -V | tail -n1)
+ifneq ($(highest),$(SAMPLE_MAX_KVER))
+$(error $(SAMPLE) requires kernel <= $(SAMPLE_MAX_KVER) (feature removed in a later kernel); target kernel is $(target_rel))
 endif
 endif
 
