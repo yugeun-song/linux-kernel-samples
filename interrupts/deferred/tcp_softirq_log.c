@@ -11,6 +11,7 @@
 #include <linux/ip.h>
 #include <linux/tcp.h>
 #include <linux/preempt.h>
+#include <linux/smp.h>
 #include <net/net_namespace.h>
 
 #define SAMPLE_EVERY 16
@@ -29,7 +30,7 @@ static unsigned int tcp_softirq_hook(const struct nf_hook_ops *ops,
 {
 	struct iphdr *iph;
 	struct tcphdr *tcph;
-	unsigned long n, c;
+	unsigned long n;
 
 	if (!skb)
 		return NF_ACCEPT;
@@ -41,12 +42,13 @@ static unsigned int tcp_softirq_hook(const struct nf_hook_ops *ops,
 	if (n % SAMPLE_EVERY != 0)
 		return NF_ACCEPT;
 
-	c = atomic_long_inc_return(&captured);
+	atomic_long_inc(&captured);
 	tcph = tcp_hdr(skb);
-	pr_info("captured #%lu/%lu: %pI4:%u -> %pI4:%u  in_hardirq=%s in_softirq=%s in_task=%s\n",
-		c, n, &iph->saddr, ntohs(tcph->source), &iph->daddr,
-		ntohs(tcph->dest), in_hardirq() ? "Y" : "N",
-		in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
+	pr_info("[cpu#%u] captured #%lu/%lu: %pI4:%u -> %pI4:%u  in_hardirq=%s in_softirq=%s in_task=%s\n",
+		smp_processor_id(), n - SAMPLE_EVERY + 1, n, &iph->saddr,
+		ntohs(tcph->source), &iph->daddr, ntohs(tcph->dest),
+		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N",
+		in_task() ? "Y" : "N");
 	return NF_ACCEPT;
 }
 
