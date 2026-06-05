@@ -4,6 +4,7 @@
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/printk.h>
+#include <linux/preempt.h>
 #include <linux/err.h>
 #include <linux/interrupt.h>
 #include <linux/irqdomain.h>
@@ -17,6 +18,8 @@ static unsigned int virq;
 
 static irqreturn_t irq_none_top_half(int irq, void *dev_id)
 {
+	pr_info("top half: in_hardirq=%s in_softirq=%s in_task=%s\n",
+		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
 	pr_info("not my device -> returning IRQ_NONE; on a shared line the core then tries the next handler, and counts the irq spurious if none claim it\n");
 	return IRQ_NONE;
 }
@@ -24,6 +27,9 @@ static irqreturn_t irq_none_top_half(int irq, void *dev_id)
 static int __init irq_none_init(void)
 {
 	int ret;
+
+	pr_info("init: in_hardirq=%s in_softirq=%s in_task=%s\n",
+		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
 
 	sim_domain = irq_domain_create_sim(NULL, SIM_IRQ_LINES);
 	if (IS_ERR(sim_domain)) {
@@ -64,6 +70,8 @@ err_remove_sim:
 
 static void __exit irq_none_exit(void)
 {
+	pr_info("exit: in_hardirq=%s in_softirq=%s in_task=%s\n",
+		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
 	free_irq(virq, NULL);
 	irq_dispose_mapping(virq);
 	irq_domain_remove_sim(sim_domain);
@@ -74,5 +82,5 @@ module_init(irq_none_init);
 module_exit(irq_none_exit);
 
 MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("Hardirq handler that returns IRQ_NONE to disown a line that is not its device, fired once at load");
+MODULE_DESCRIPTION("Hardirq handler returning IRQ_NONE to disown a foreign line");
 MODULE_VERSION("1.0");

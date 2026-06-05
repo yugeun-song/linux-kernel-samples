@@ -23,8 +23,8 @@ static void bh_workqueue_bottom_half(struct work_struct *work)
 {
 	void *buf;
 
-	pr_info("bottom half in softirq context (BH workqueue): in_hardirq=%u in_softirq=%u\n",
-		in_hardirq() ? 1 : 0, in_softirq() ? 1 : 0);
+	pr_info("bottom half: in_hardirq=%s in_softirq=%s in_task=%s\n",
+		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
 
 	buf = kmalloc(64, GFP_ATOMIC);
 	if (!buf) {
@@ -39,7 +39,9 @@ static DECLARE_WORK(bottom_half, bh_workqueue_bottom_half);
 
 static irqreturn_t bh_workqueue_top_half(int irq, void *dev_id)
 {
-	pr_info("top half (hardirq); queueing the BH-workqueue bottom half\n");
+	pr_info("top half: in_hardirq=%s in_softirq=%s in_task=%s\n",
+		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
+	pr_info("queueing the BH-workqueue bottom half\n");
 	queue_work(bh_wq, &bottom_half);
 	return IRQ_HANDLED;
 }
@@ -47,6 +49,9 @@ static irqreturn_t bh_workqueue_top_half(int irq, void *dev_id)
 static int __init bh_workqueue_init(void)
 {
 	int ret;
+
+	pr_info("init: in_hardirq=%s in_softirq=%s in_task=%s\n",
+		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
 
 	bh_wq = alloc_workqueue(KBUILD_MODNAME, WQ_BH, 0);
 	if (!bh_wq) {
@@ -95,6 +100,8 @@ err_destroy_wq:
 
 static void __exit bh_workqueue_exit(void)
 {
+	pr_info("exit: in_hardirq=%s in_softirq=%s in_task=%s\n",
+		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
 	free_irq(virq, NULL);
 	irq_dispose_mapping(virq);
 	irq_domain_remove_sim(sim_domain);
@@ -106,5 +113,5 @@ module_init(bh_workqueue_init);
 module_exit(bh_workqueue_exit);
 
 MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("BH (bottom-half) workqueue in softirq context, the modern tasklet replacement, fired once at load");
+MODULE_DESCRIPTION("BH workqueue bottom half in softirq context");
 MODULE_VERSION("1.0");

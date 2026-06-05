@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: 0BSD
 
 /*
- * DANGER -- this module deliberately performs an ILLEGAL kernel operation
+ * WARNING: this module deliberately performs an ILLEGAL kernel operation
  * for teaching purposes: it sleeps (msleep) inside softirq context (a
  * tasklet). Softirq context is atomic and must NEVER block; doing so can
  * trip a "scheduling while atomic" BUG or wedge the machine. The illegal
@@ -16,7 +16,7 @@
  * (sleeping in softirq), not the vehicle (the tasklet) used to get there.
  *
  * Verified on kernel 7.0.11 with danger_enabled=1. Captured live with ftrace
- * function_graph (set_graph_function=danger_tasklet, max_graph_depth=30) and
+ * function_graph (set_graph_function=softirq_danger_bottom_half, max_graph_depth=30) and
  * dmesg. The captured trace is longer than what is shown here; every part
  * trimmed from the real output is marked with "..." (deep callee internals --
  * BUG reporting, CFS scheduler -- and the setup/teardown calls around the
@@ -24,7 +24,11 @@
  *
  * ftrace function_graph:
  *
- *  6)               |  danger_tasklet [sleep_in_softirq_danger]() {
+ *  6)               |  softirq_danger_bottom_half [sleep_in_softirq_danger]() {
+ *  6)               |    _printk() {
+ *  6)               |      ...
+ *  6)               |    }
+ *  6)               |    ...
  *  6)               |    msleep() {
  *  6)               |      ...
  *  6)               |      schedule_timeout_uninterruptible() {
@@ -54,8 +58,9 @@
  *
  * dmesg (unreliable "?" stack-scan frames replaced with "..."):
  *
- *  sleep_in_softirq_danger: danger_tasklet() - danger_enabled=1: about to sleep in softirq context -- this is ILLEGAL
- *  BUG: scheduling while atomic: bash/152/0x00000102
+ *  sleep_in_softirq_danger: softirq_danger_bottom_half() - bottom half: in_hardirq=N in_softirq=Y in_task=N
+ *  sleep_in_softirq_danger: softirq_danger_bottom_half() - danger_enabled=1: about to sleep in softirq context -- this is ILLEGAL
+ *  BUG: scheduling while atomic: bash/154/0x00000102
  *  Call Trace:
  *   <IRQ>
  *   ...
@@ -70,7 +75,7 @@
  *   ...
  *   msleep+0x1b/0x30
  *   ...
- *   danger_tasklet+0x3b/0x50 [sleep_in_softirq_danger 9a21c3e2794ca438e833bca03c6f6d5e6fc1c160]
+ *   softirq_danger_bottom_half+0x8c/0xa0 [sleep_in_softirq_danger 7176c4ae647ade59326b69d68a4fcc76ad1c368d]
  *   ...
  *   tasklet_action_common+0xe4/0x2b0
  *   handle_softirqs+0xe8/0x2c0
@@ -81,7 +86,7 @@
  *   asm_sysvec_irq_work+0x1a/0x20
  *   __irq_put_desc_unlock+0x1c/0x50
  *   irq_set_irqchip_state+0xb2/0x120
- *   trigger_write+0x23/0x40 [sleep_in_softirq_danger 9a21c3e2794ca438e833bca03c6f6d5e6fc1c160]
+ *   trigger_write+0x23/0x40 [sleep_in_softirq_danger 7176c4ae647ade59326b69d68a4fcc76ad1c368d]
  *   full_proxy_write+0x6f/0xc0
  *   vfs_write+0xe6/0x570
  *   ...
@@ -91,7 +96,7 @@
  *   entry_SYSCALL_64_after_hwframe+0x76/0x7e
  *
  * => same as the hardirq case but reached via __irq_exit_rcu -> handle_softirqs
- *    -> tasklet_action_common -> danger_tasklet (softirq, preempt_count
+ *    -> tasklet_action_common -> softirq_danger_bottom_half (softirq, preempt_count
  *    0x00000102): __schedule_bug warns, then schedule() really context-switches
  *    and the CPU actually sleeps ~100 ms (@ 100701 us) -- system left unstable.
  *
@@ -121,8 +126,10 @@ static unsigned int virq;
 static bool debugfs_danger_enabled;
 static struct tasklet_struct danger_bh;
 
-static void danger_tasklet(struct tasklet_struct *t)
+static void softirq_danger_bottom_half(struct tasklet_struct *t)
 {
+	pr_info("bottom half: in_hardirq=%s in_softirq=%s in_task=%s\n",
+		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
 	if (!READ_ONCE(debugfs_danger_enabled)) {
 		/* SAFE mock path: the gate is off, so we do NOT sleep. */
 		pr_warn("danger_enabled=0: skipping the ILLEGAL in-softirq sleep (safe mock, no-op)\n");
@@ -130,7 +137,7 @@ static void danger_tasklet(struct tasklet_struct *t)
 	}
 
 	/*
-	 * DANGER: msleep() in softirq context sleeps while atomic. This is
+	 * BUG: msleep() in softirq context sleeps while atomic. This is
 	 * strictly illegal and may BUG or wedge the kernel. It exists solely
 	 * to demonstrate what must NEVER be done in a tasklet/softirq.
 	 */
@@ -139,8 +146,10 @@ static void danger_tasklet(struct tasklet_struct *t)
 	pr_warn("returned from the illegal sleep; the system may now be unstable\n");
 }
 
-static irqreturn_t danger_handler(int irq, void *dev_id)
+static irqreturn_t softirq_danger_top_half(int irq, void *dev_id)
 {
+	pr_info("top half: in_hardirq=%s in_softirq=%s in_task=%s\n",
+		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
 	tasklet_schedule(&danger_bh);
 	return IRQ_HANDLED;
 }
@@ -168,7 +177,10 @@ static int __init sleep_in_softirq_danger_init(void)
 {
 	int ret;
 
-	tasklet_setup(&danger_bh, danger_tasklet);
+	pr_info("init: in_hardirq=%s in_softirq=%s in_task=%s\n",
+		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
+
+	tasklet_setup(&danger_bh, softirq_danger_bottom_half);
 
 	sim_domain = irq_domain_create_sim(NULL, SIM_IRQ_LINES);
 	if (IS_ERR(sim_domain)) {
@@ -184,7 +196,7 @@ static int __init sleep_in_softirq_danger_init(void)
 		goto err_remove_sim;
 	}
 
-	ret = request_irq(virq, danger_handler, 0, KBUILD_MODNAME, NULL);
+	ret = request_irq(virq, softirq_danger_top_half, 0, KBUILD_MODNAME, NULL);
 	if (ret) {
 		pr_err("request_irq failed: %d\n", ret);
 		goto err_dispose_mapping;
@@ -221,6 +233,8 @@ err_kill_tasklet:
 
 static void __exit sleep_in_softirq_danger_exit(void)
 {
+	pr_info("exit: in_hardirq=%s in_softirq=%s in_task=%s\n",
+		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
 	debugfs_remove(debug_dir);
 	free_irq(virq, NULL);
 	irq_dispose_mapping(virq);
@@ -233,5 +247,5 @@ module_init(sleep_in_softirq_danger_init);
 module_exit(sleep_in_softirq_danger_exit);
 
 MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("DANGER: deliberately sleeps in softirq context (illegal) when danger_enabled is set via debugfs");
+MODULE_DESCRIPTION("WARNING: sleeps in softirq context (illegal, debugfs-gated)");
 MODULE_VERSION("1.0");

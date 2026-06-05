@@ -276,9 +276,14 @@ run their bottom half in softirq context (no sleeping, `GFP_ATOMIC` only), while
 softirq vector of its own (`open_softirq` is not exported and the vector table is
 fixed at compile time), so it owns only a bottom half — a `timer_list` callback
 in `TIMER_SOFTIRQ` context — while the top half is the kernel's own timer-tick
-interrupt, present on every machine regardless of architecture or board. The log
-lines name the context each half runs in and which allocations are legal there,
-so `dmesg` is the lesson.
+interrupt, present on every machine regardless of architecture or board.
+`tcp_softirq_log` likewise drives no simulated irq: it registers a netfilter
+LOCAL_IN hook that logs every Nth inbound TCP packet (always `NF_ACCEPT`,
+observe-only), showing that TCP receive runs in `NET_RX_SOFTIRQ` — its
+`in_softirq=Y` line proves it. Generate traffic from outside (a `ping`/`curl` to
+localhost is enough); the module never creates packets itself. The log lines
+name the context each half runs in and which allocations are legal there, so
+`dmesg` is the lesson.
 
 The `interrupts/danger/` samples deliberately perform an **illegal** operation —
 sleeping in atomic (hardirq/softirq) context — to show what must never be done.
@@ -359,8 +364,8 @@ nothing but its `.c`. Recognized variables:
 ## Coding style
 
 Strict Linux kernel style (hard tabs, 8-column width; see `.clang-format` and
-`.editorconfig`) with two deliberate exceptions: braces are never omitted, even
-for a single statement, and the column limit is not strictly enforced. clangd is
+`.editorconfig`) with one deliberate exception: the column limit is not strictly
+enforced. clangd is
 intentionally not used for this repo — without the exact kernel build flags it
 reports false errors on kernel headers and macros; tree-sitter syntax
 highlighting still works.

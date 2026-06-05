@@ -20,7 +20,9 @@ static unsigned int virq;
 
 static irqreturn_t threaded_irq_top_half(int irq, void *dev_id)
 {
-	pr_info("top half (hardirq); waking the irq thread for the bottom half\n");
+	pr_info("top half: in_hardirq=%s in_softirq=%s in_task=%s\n",
+		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
+	pr_info("waking the irq thread for the bottom half\n");
 	return IRQ_WAKE_THREAD;
 }
 
@@ -28,8 +30,8 @@ static irqreturn_t threaded_irq_bottom_half(int irq, void *dev_id)
 {
 	void *buf;
 
-	pr_info("threaded bottom half in process context: in_hardirq=%u in_softirq=%u in_task=%u\n",
-		in_hardirq() ? 1 : 0, in_softirq() ? 1 : 0, in_task() ? 1 : 0);
+	pr_info("bottom half: in_hardirq=%s in_softirq=%s in_task=%s\n",
+		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
 
 	buf = kmalloc(64, GFP_KERNEL);
 	if (!buf) {
@@ -48,6 +50,9 @@ static irqreturn_t threaded_irq_bottom_half(int irq, void *dev_id)
 static int __init threaded_irq_init(void)
 {
 	int ret;
+
+	pr_info("init: in_hardirq=%s in_softirq=%s in_task=%s\n",
+		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
 
 	sim_domain = irq_domain_create_sim(NULL, SIM_IRQ_LINES);
 	if (IS_ERR(sim_domain)) {
@@ -89,6 +94,8 @@ err_remove_sim:
 
 static void __exit threaded_irq_exit(void)
 {
+	pr_info("exit: in_hardirq=%s in_softirq=%s in_task=%s\n",
+		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
 	free_irq(virq, NULL);
 	irq_dispose_mapping(virq);
 	irq_domain_remove_sim(sim_domain);
@@ -99,5 +106,5 @@ module_init(threaded_irq_init);
 module_exit(threaded_irq_exit);
 
 MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("Threaded IRQ: hardirq top half wakes a dedicated kthread bottom half that may sleep, fired once at load");
+MODULE_DESCRIPTION("Threaded IRQ bottom half in a dedicated kthread");
 MODULE_VERSION("1.0");

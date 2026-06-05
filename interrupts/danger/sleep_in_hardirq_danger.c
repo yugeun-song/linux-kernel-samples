@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: 0BSD
 
 /*
- * DANGER -- this module deliberately performs an ILLEGAL kernel operation
+ * WARNING: this module deliberately performs an ILLEGAL kernel operation
  * for teaching purposes: it sleeps (msleep) inside hardirq context. Hardirq
  * context is atomic and must NEVER block; doing so can hang the CPU, trip a
  * "scheduling while atomic" BUG, or wedge the machine. The illegal path runs
@@ -11,7 +11,7 @@
  * -- use a throwaway VM.
  *
  * Verified on kernel 7.0.11 with danger_enabled=1. Captured live with ftrace
- * function_graph (set_graph_function=danger_handler, max_graph_depth=30) and
+ * function_graph (set_graph_function=hardirq_danger_top_half, max_graph_depth=30) and
  * dmesg. The captured trace is longer than what is shown here; every part
  * trimmed from the real output is marked with "..." (deep callee internals --
  * BUG reporting, CFS scheduler -- and the setup/teardown calls around the
@@ -19,7 +19,11 @@
  *
  * ftrace function_graph:
  *
- *  6)               |  danger_handler [sleep_in_hardirq_danger]() {
+ *  6)               |  hardirq_danger_top_half [sleep_in_hardirq_danger]() {
+ *  6)               |    _printk() {
+ *  6)               |      ...
+ *  6)               |    }
+ *  6)               |    ...
  *  6)               |    msleep() {
  *  6)               |      ...
  *  6)               |      schedule_timeout_uninterruptible() {
@@ -49,8 +53,9 @@
  *
  * dmesg (unreliable "?" stack-scan frames replaced with "..."):
  *
- *  sleep_in_hardirq_danger: danger_handler() - danger_enabled=1: about to sleep in hardirq context -- this is ILLEGAL
- *  BUG: scheduling while atomic: bash/152/0x00010002
+ *  sleep_in_hardirq_danger: hardirq_danger_top_half() - top half: in_hardirq=Y in_softirq=N in_task=N
+ *  sleep_in_hardirq_danger: hardirq_danger_top_half() - danger_enabled=1: about to sleep in hardirq context -- this is ILLEGAL
+ *  BUG: scheduling while atomic: bash/151/0x00010002
  *  Call Trace:
  *   <IRQ>
  *   ...
@@ -65,7 +70,7 @@
  *   ...
  *   msleep+0x1b/0x30
  *   ...
- *   danger_handler+0x3d/0x60 [sleep_in_hardirq_danger 82c4602ebfecbbd081bf377a2d33f45929b35c75]
+ *   hardirq_danger_top_half+0x8e/0xb0 [sleep_in_hardirq_danger 2cb39c9efac2f6deae43252d9d3a4126473d6496]
  *   ...
  *   __handle_irq_event_percpu+0x6c/0x250
  *   handle_irq_event+0x38/0x80
@@ -81,7 +86,7 @@
  *   asm_sysvec_irq_work+0x1a/0x20
  *   __irq_put_desc_unlock+0x1c/0x50
  *   irq_set_irqchip_state+0xb2/0x120
- *   trigger_write+0x23/0x40 [sleep_in_hardirq_danger 82c4602ebfecbbd081bf377a2d33f45929b35c75]
+ *   trigger_write+0x23/0x40 [sleep_in_hardirq_danger 2cb39c9efac2f6deae43252d9d3a4126473d6496]
  *   full_proxy_write+0x6f/0xc0
  *   vfs_write+0xe6/0x570
  *   ...
@@ -120,8 +125,10 @@ static struct dentry *debug_dir;
 static unsigned int virq;
 static bool debugfs_danger_enabled;
 
-static irqreturn_t danger_handler(int irq, void *dev_id)
+static irqreturn_t hardirq_danger_top_half(int irq, void *dev_id)
 {
+	pr_info("top half: in_hardirq=%s in_softirq=%s in_task=%s\n",
+		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
 	if (!READ_ONCE(debugfs_danger_enabled)) {
 		/*
 		 * SAFE mock path: the gate is off, so we do NOT perform the
@@ -132,7 +139,7 @@ static irqreturn_t danger_handler(int irq, void *dev_id)
 	}
 
 	/*
-	 * DANGER: msleep() in hardirq context sleeps while atomic. This is
+	 * BUG: msleep() in hardirq context sleeps while atomic. This is
 	 * strictly illegal and may hang the CPU or BUG the kernel. It exists
 	 * solely to demonstrate what must NEVER be done in an interrupt handler.
 	 */
@@ -165,6 +172,9 @@ static int __init sleep_in_hardirq_danger_init(void)
 {
 	int ret;
 
+	pr_info("init: in_hardirq=%s in_softirq=%s in_task=%s\n",
+		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
+
 	sim_domain = irq_domain_create_sim(NULL, SIM_IRQ_LINES);
 	if (IS_ERR(sim_domain)) {
 		ret = PTR_ERR(sim_domain);
@@ -179,7 +189,7 @@ static int __init sleep_in_hardirq_danger_init(void)
 		goto err_remove_sim;
 	}
 
-	ret = request_irq(virq, danger_handler, 0, KBUILD_MODNAME, NULL);
+	ret = request_irq(virq, hardirq_danger_top_half, 0, KBUILD_MODNAME, NULL);
 	if (ret) {
 		pr_err("request_irq failed: %d\n", ret);
 		goto err_dispose_mapping;
@@ -214,6 +224,8 @@ err_remove_sim:
 
 static void __exit sleep_in_hardirq_danger_exit(void)
 {
+	pr_info("exit: in_hardirq=%s in_softirq=%s in_task=%s\n",
+		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
 	debugfs_remove(debug_dir);
 	free_irq(virq, NULL);
 	irq_dispose_mapping(virq);
@@ -225,5 +237,5 @@ module_init(sleep_in_hardirq_danger_init);
 module_exit(sleep_in_hardirq_danger_exit);
 
 MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("DANGER: deliberately sleeps in hardirq context (illegal) when danger_enabled is set via debugfs");
+MODULE_DESCRIPTION("WARNING: sleeps in hardirq context (illegal, debugfs-gated)");
 MODULE_VERSION("1.0");

@@ -2,10 +2,10 @@
 #
 # Derived from the Linux kernel's own .clang-format (strict kernel style),
 # with two intentional, project-wide deviations:
-#   1. InsertBraces: true  -> never omit braces, even for a single statement.
-#   2. ColumnLimit: 0       -> do not enforce a hard column limit / no reflow.
+#   1. RemoveBracesLLVM: true -> omit braces on single statements (kernel style).
+#   2. ColumnLimit: 0          -> do not enforce a hard column limit / no reflow.
 #
-# Note: InsertBraces requires clang-format >= 15. The canonical, exhaustive
+# Note: RemoveBracesLLVM requires clang-format >= 14. The canonical, exhaustive
 # ForEachMacros list lives in the kernel tree's own .clang-format; the set
 # below covers the iterators these samples actually use.
 ---
@@ -39,8 +39,8 @@ BraceWrapping:
   SplitEmptyFunction: true
   SplitEmptyRecord: true
 
-# --- Deviation #1: always require braces ---
-InsertBraces: true
+# --- Deviation #1: omit braces on single statements (kernel style) ---
+RemoveBracesLLVM: true
 AllowShortBlocksOnASingleLine: false
 AllowShortCaseLabelsOnASingleLine: false
 AllowShortFunctionsOnASingleLine: None
