@@ -15,8 +15,9 @@ modules.order
 *.dwo
 *.gcno
 
-# ---- Generated per-sample kbuild stub (created at build time, never committed) ----
+# ---- Generated kbuild stub + isolated per-sample build dirs (build time, never committed) ----
 Kbuild
+.build-*/
 
 # ---- PC-local build target config (not part of the repo) ----
 config.mk

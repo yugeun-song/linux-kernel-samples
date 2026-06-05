@@ -24,7 +24,9 @@ else
 mod := $(src_base)
 endif
 
-KBUILD_ARGS := M=$(src)
+bdir := $(src)/.build-$(mod)
+srcs := $(if $(SAMPLE_OBJS),$(SAMPLE_OBJS:.o=.c),$(src_base).c)
+KBUILD_ARGS := M=$(bdir)
 ifneq ($(ARCH),)
 KBUILD_ARGS += ARCH=$(ARCH)
 endif
@@ -100,14 +102,16 @@ endif
 .PHONY: build clean
 
 build:
-	@echo 'obj-m := $(mod).o' > $(src)/Kbuild
-	@$(if $(SAMPLE_OBJS),echo '$(mod)-objs := $(SAMPLE_OBJS)' >> $(src)/Kbuild,$(if $(filter-out $(mod),$(src_base)),echo '$(mod)-objs := $(src_base).o' >> $(src)/Kbuild,:))
+	@mkdir -p $(bdir)
+	@for c in $(srcs); do ln -sf $(src)/$$c $(bdir)/$$c; done
+	@echo 'obj-m := $(mod).o' > $(bdir)/Kbuild
+	@$(if $(SAMPLE_OBJS),echo '$(mod)-objs := $(SAMPLE_OBJS)' >> $(bdir)/Kbuild,$(if $(filter-out $(mod),$(src_base)),echo '$(mod)-objs := $(src_base).o' >> $(bdir)/Kbuild,:))
 	$(MAKE) -C $(KDIR) $(KBUILD_ARGS) modules
+	@cp $(bdir)/$(mod).ko $(src)/$(mod).ko
 ifeq ($(SIGN),1)
 	@sh '$(SIGN_SCRIPT)' '$(KDIR)/scripts/sign-file' '$(SIGN_KEY)' '$(SIGN_CERT)' '$(src)/$(mod).ko'
 endif
 
 clean:
-	@echo 'obj-m := $(mod).o' > $(src)/Kbuild
-	-$(MAKE) -C $(KDIR) $(KBUILD_ARGS) clean
-	@rm -f $(src)/Kbuild
+	@rm -rf $(bdir)
+	@rm -f $(src)/$(mod).ko

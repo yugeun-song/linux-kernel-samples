@@ -50,7 +50,6 @@ endif
 SUBMAKE = $(MAKE) -f $(DRIVER) $(PASS)
 
 .PHONY: all clean list tags cscope target $(SAMPLES)
-.NOTPARALLEL:
 
 all: $(SAMPLES)
 
