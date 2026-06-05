@@ -259,20 +259,26 @@ dmesg | tail
 sudo rmmod hardirq
 ```
 
-The `interrupts/deferred/` samples share the same hardirq top half but defer the
-work to a different bottom-half mechanism — `tasklet` and `bh_workqueue` run in
-softirq context (no sleeping, `GFP_ATOMIC` only), while `workqueue` and
-`threaded_irq` run in process context (sleeping and `GFP_KERNEL` allowed). The
-log lines name the context each half runs in and which allocations are legal
-there, so `dmesg` is the lesson.
+Two more samples sit at the hardirq layer and exercise the top half's own
+controls instead of deferring. `irq_none` returns `IRQ_NONE` to disown a line
+whose device did not raise it -- how a shared-irq handler says "not mine" so the
+core tries the next handler. `disable_irq` masks its simulated line, raises it
+while masked to show the handler stays blocked, then calls `enable_irq` to let it
+through. Both act only on the module's own simulated irq, never a real system
+interrupt.
 
-The `interrupts/softirq/` sample fills the softirq slot the only way module code
-can: a module cannot register a softirq of its own (the vector table is fixed at
-compile time and `open_softirq` is not exported), so `timer_softirq` owns only a
-bottom half — a `timer_list` callback running in `TIMER_SOFTIRQ` context — while
-its top half is the kernel's own timer-tick interrupt, a hardware event present
-on every machine regardless of architecture or board. It logs one line per
-expiry until `rmmod`.
+The `interrupts/deferred/` samples each defer work from a top half to a
+bottom-half mechanism, and differ in that mechanism. `tasklet` and `bh_workqueue`
+run their bottom half in softirq context (no sleeping, `GFP_ATOMIC` only), while
+`workqueue` and `threaded_irq` run theirs in process context (sleeping and
+`GFP_KERNEL` allowed); all four share the same simulated-hardirq top half.
+`timer_softirq` is the exception that proves the rule: a module cannot register a
+softirq vector of its own (`open_softirq` is not exported and the vector table is
+fixed at compile time), so it owns only a bottom half — a `timer_list` callback
+in `TIMER_SOFTIRQ` context — while the top half is the kernel's own timer-tick
+interrupt, present on every machine regardless of architecture or board. The log
+lines name the context each half runs in and which allocations are legal there,
+so `dmesg` is the lesson.
 
 The `interrupts/danger/` samples deliberately perform an **illegal** operation —
 sleeping in atomic (hardirq/softirq) context — to show what must never be done.
@@ -348,6 +354,7 @@ nothing but its `.c`. Recognized variables:
 | `SAMPLE_REQUIRED_CONFIGS` | kernel configs that must be `=y`/`=m` (e.g. `CONFIG_KPROBES`) |
 | `SAMPLE_SUPPORTED_ARCH` | allowed arches, in kbuild ARCH names (e.g. `x86 arm64`) |
 | `SAMPLE_MIN_KVER` | minimum kernel version (e.g. `5.14`) |
+| `SAMPLE_MAX_KVER` | maximum kernel version, for an API removed in a later kernel (e.g. `6.7`) |
 
 ## Coding style
 
