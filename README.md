@@ -270,7 +270,7 @@ interrupt.
 The `interrupts/deferred/` samples each defer work from a top half to a
 bottom-half mechanism, and differ in that mechanism. `tasklet` and `bh_workqueue`
 run their bottom half in softirq context (no sleeping, `GFP_ATOMIC` only), while
-`workqueue` and `threaded_irq` run theirs in process context (sleeping and
+`workqueue_sample` and `threaded_irq` run theirs in process context (sleeping and
 `GFP_KERNEL` allowed); all four share the same simulated-hardirq top half.
 `timer_softirq` is the exception that proves the rule: a module cannot register a
 softirq vector of its own (`open_softirq` is not exported and the vector table is

@@ -20,7 +20,7 @@ static struct irq_domain *sim_domain;
 static struct workqueue_struct *proc_wq;
 static unsigned int virq;
 
-static void workqueue_bottom_half(struct work_struct *work)
+static void workqueue_sample_bottom_half(struct work_struct *work)
 {
 	void *buf;
 
@@ -39,9 +39,9 @@ static void workqueue_bottom_half(struct work_struct *work)
 	pr_info("slept 10ms; sleeping is allowed here, unlike hardirq/softirq\n");
 }
 
-static DECLARE_WORK(bottom_half, workqueue_bottom_half);
+static DECLARE_WORK(bottom_half, workqueue_sample_bottom_half);
 
-static irqreturn_t workqueue_top_half(int irq, void *dev_id)
+static irqreturn_t workqueue_sample_top_half(int irq, void *dev_id)
 {
 	pr_info("top half: in_hardirq=%s in_softirq=%s in_task=%s\n",
 		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
@@ -77,7 +77,7 @@ static int __init workqueue_sample_init(void)
 		goto err_remove_sim;
 	}
 
-	ret = request_irq(virq, workqueue_top_half, 0, KBUILD_MODNAME, NULL);
+	ret = request_irq(virq, workqueue_sample_top_half, 0, KBUILD_MODNAME, NULL);
 	if (ret) {
 		pr_err("request_irq failed: %d\n", ret);
 		goto err_dispose_mapping;

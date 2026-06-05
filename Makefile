@@ -31,7 +31,7 @@ SAMPLES := \
 	interrupts/hardirq/disable_irq \
 	interrupts/deferred/tasklet \
 	interrupts/deferred/bh_workqueue \
-	interrupts/deferred/workqueue \
+	interrupts/deferred/workqueue_sample \
 	interrupts/deferred/threaded_irq \
 	interrupts/deferred/timer_softirq \
 	interrupts/deferred/tcp_softirq_log \
