@@ -325,12 +325,37 @@ crashes the host.
 - **Fastest for kernel work:** [virtme-ng] (`vng`) boots your *current* kernel in
   a QEMU VM in seconds, with this directory available and no disk image to build.
   Install it (`sudo apt install qemu-system-x86 virtme-ng` on Ubuntu, `sudo dnf
-  install qemu-system-x86 virtme-ng` on Fedora), run `vng` from the repo to get a
+  install qemu-system-x86 virtme-ng` on Fedora), run `vng -r` from the repo to get a
   throwaway VM on your own kernel, and do the normal `make` + `insmod` + `dmesg` +
   `rmmod` inside it. vermagic matches (same kernel), so no signing is needed, and a
-  panic only kills the VM. See its docs for one-shot `vng -- <cmd>` usage.
+  panic only kills the VM. See its docs for one-shot `vng -r -- <cmd>` usage.
 
 [virtme-ng]: https://github.com/arighi/virtme-ng
+
+#### Debugging a loaded sample: map it back to its live addresses
+
+A loaded module's code and data sit at whatever base the loader chose in the
+module mapping area, not the zero-based link-time addresses in the `.ko` (an
+`ET_REL` object relocated at load). Three interfaces expose that live placement;
+read them as root, since the `sections/` files are mode 0400 and `kptr_restrict`
+blanks the other two for unprivileged readers:
+
+```
+sudo grep '\[hardirq\]' /proc/kallsyms       # each module symbol at its runtime addr, tagged [hardirq]
+sudo grep '^hardirq ' /proc/modules          # ...Live 0xffffffffc0659000 (OE)  -> base, before the taint flag
+sudo cat /sys/module/hardirq/sections/.text  # 0xffffffffc0659000 -- the same base
+ls -a /sys/module/hardirq/sections/          # sections are dotfiles; only non-empty ones exist (hardirq has no .data)
+```
+
+On 6.4+ the `/proc/modules` address is the `.text` base: the hex field *before*
+the `(OE)` out-of-tree/unsigned taint flag, not the last token. Feed that base
+(plus any `.bss`/`.data` that exist) to gdb attached to the VM over a kernel gdb
+stub (KGDB, or QEMU's `-s`): `add-symbol-file hardirq.ko 0x<.text> -s .bss
+0x<.bss>` gives source-level breakpoints on the live module, because the `.ko`
+carries `CONFIG_DEBUG_INFO` DWARF. That same DWARF decodes an oops line
+`func+0x<off> [hardirq]` offline -- `gdb hardirq.ko -ex 'list *(func+0x<off>)'`
+prints the source line. The base is re-randomized each load, so re-read it every
+time; never hardcode it.
 
 #### Loading under Secure Boot (without turning it off)
 
