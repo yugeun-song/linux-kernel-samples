@@ -49,9 +49,12 @@ endif
 
 SUBMAKE = $(MAKE) -f $(DRIVER) $(PASS)
 
-.PHONY: all clean list tags cscope target $(SAMPLES)
+.PHONY: all clean list tags cscope compdb target $(SAMPLES)
 
-all: $(SAMPLES)
+all: $(SAMPLES) compdb tags cscope
+
+compdb: $(SAMPLES)
+	python3 scripts/compdb.py
 
 target:
 	@echo '=> target: KVER=$(KVER) ARCH=$(TARGET_ARCH) ($(TARGET_SRC))'

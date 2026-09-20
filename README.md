@@ -189,12 +189,13 @@ Use a `sample.mk` only for a multi-file module or special build requirements
 ### Running the build
 
 ```
-make                       # build (and sign) every registered sample
+make                       # build (and sign) every sample, then compdb, tags, cscope
 make <theme>/<sample>      # build one, e.g. make smp/percpu/percpu_parallel
 make <theme>/<sample> SIGN=0   # build that sample without signing
 make clean                 # clean every registered sample
 make list                  # list registered samples
 make tags                  # ctags index for editor jumps (also: make cscope)
+make compdb                # compile_commands.json for clangd, from the kbuild .cmd files
 ```
 
 `make` signs each built module by default, generating a local key
@@ -398,7 +399,9 @@ nothing but its `.c`. Recognized variables:
 
 Strict Linux kernel style (hard tabs, 8-column width; see `.clang-format` and
 `.editorconfig`) with one deliberate exception: the column limit is not strictly
-enforced. clangd is
-intentionally not used for this repo — without the exact kernel build flags it
-reports false errors on kernel headers and macros; tree-sitter syntax
-highlighting still works.
+enforced. clangd needs the exact kernel build flags, or it reports false errors
+on kernel headers and macros. `make compdb` (also part of `make`) writes
+`compile_commands.json` from the `.cmd` files kbuild leaves in each
+`.build-<mod>` directory, pointing each entry at the real source rather than the
+build-dir symlink, and drops the GCC-only flags clang rejects. Build the samples
+at least once before opening them in an editor.
