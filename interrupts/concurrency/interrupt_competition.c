@@ -4,10 +4,12 @@
 /*
  * Every core competes for the SAME interrupt. One simulated irq (a single virq)
  * is raised concurrently by a per-CPU kthread on every online core. Because it
- * is one line, genirq serializes the hardirq (IRQD_IRQ_INPROGRESS): many cores
- * push at once, but the handler still runs one at a time. The shared counter,
- * guarded by spin_lock_irqsave, stays gap-free across the hardirq and the
- * softirq (tasklet) that follows it.
+ * is one line, raises are not queued: irq_sim keeps one pending bit per line
+ * and one irq_work per domain, so raises that land together merge, and
+ * genirq's irq_may_run() drops one that arrives while the handler is
+ * INPROGRESS. The
+ * handler runs one at a time; the shared counter, guarded by spin_lock_irqsave,
+ * stays gap-free across the hardirq and the softirq (tasklet) that follows it.
  *
  * The log also shows the hardirq -> softirq chain: each hardirq stamps its
  * sequence number into pending_seq under the lock, and the softirq that drains

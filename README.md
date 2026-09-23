@@ -110,8 +110,11 @@ Why each piece exists:
   (full text in `LICENSE`). The tag rides with the file if a sample is copied out.
 - `MODULE_LICENSE("GPL")` is the kernel-runtime tag, distinct from the SPDX
   copyright line: a non-GPL string taints the kernel and blocks access to
-  GPL-only exported symbols, so it stays `"GPL"` to keep e.g. the kthread API
-  usable. `MODULE_AUTHOR` and `MODULE_DESCRIPTION` are `modinfo` metadata.
+  GPL-only exported symbols, so it stays `"GPL"` for the ones the samples call,
+  e.g. `smpboot_register_percpu_thread()` and the irq_sim API (the kthread API
+  itself, `kthread_create_on_node()`/`kthread_stop()`, is a plain
+  `EXPORT_SYMBOL`). `MODULE_AUTHOR` and `MODULE_DESCRIPTION` are `modinfo`
+  metadata.
 
 ## Build pipeline (how it works, and why)
 
@@ -273,6 +276,8 @@ bottom-half mechanism, and differ in that mechanism. `tasklet` and `bh_workqueue
 run their bottom half in softirq context (no sleeping, `GFP_ATOMIC` only), while
 `workqueue_sample` and `threaded_irq` run theirs in process context (sleeping and
 `GFP_KERNEL` allowed); all four share the same simulated-hardirq top half.
+Tasklets are deprecated, and `bh_workqueue` shows their replacement, the BH
+workqueue (6.9+); the tasklet samples stay for the classic form.
 `timer_softirq` is the exception that proves the rule: a module cannot register a
 softirq vector of its own (`open_softirq` is not exported and the vector table is
 fixed at compile time), so it owns only a bottom half — a `timer_list` callback
@@ -281,18 +286,22 @@ interrupt, present on every machine regardless of architecture or board.
 `tcp_softirq_log` likewise drives no simulated irq: it registers a netfilter
 LOCAL_IN hook that logs every Nth inbound TCP packet (always `NF_ACCEPT`,
 observe-only), showing that TCP receive runs in `NET_RX_SOFTIRQ` — its
-`in_softirq=Y` line proves it. Generate traffic from outside (a `ping`/`curl` to
-localhost is enough); the module never creates packets itself. The log lines
-name the context each half runs in and which allocations are legal there, so
-`dmesg` is the lesson.
+`in_serving_softirq=Y` field proves it (`in_softirq()` alone is
+`softirq_count()`, also nonzero under `local_bh_disable()`). Generate traffic
+from outside (a `ping`/`curl` to localhost is enough); the module never creates
+packets itself. The log lines name the context each half runs in and which
+allocations are legal there, so `dmesg` is the lesson.
 
 The `interrupts/concurrency/interrupt_competition` sample has every online CPU
 race to raise the SAME simulated irq — one per-CPU kthread each — so many cores
-push the same line at once. Because it is one line, genirq serializes the hardirq
-(one at a time), and a single `spin_lock_irqsave()` keeps the shared counter
-gap-free across the hardirq and the softirq that follows. The log also traces the
-hardirq → softirq chain (each softirq reports which hardirq number it picked up),
-and every line names the CPU it ran on.
+push the same line at once. Because it is one line, raises that land together
+merge or drop rather than queue (irq_sim keeps one pending bit per line and one
+irq_work per domain, and genirq refuses re-entry while the handler is in
+progress), so the
+handler runs one at a time, and a single `spin_lock_irqsave()` keeps the shared
+counter gap-free across the hardirq and the softirq that follows. The log also
+traces the hardirq → softirq chain (each softirq reports which hardirq number it
+picked up), and every line names the CPU it ran on.
 
 The `interrupts/danger/` samples deliberately perform an **illegal** operation —
 sleeping in atomic (hardirq/softirq) context — to show what must never be done.
