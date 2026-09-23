@@ -3,7 +3,6 @@
 
 #include <linux/module.h>
 #include <linux/init.h>
-#include <linux/version.h>
 #include <linux/printk.h>
 #include <linux/atomic.h>
 #include <linux/netfilter.h>
@@ -19,17 +18,11 @@
 static atomic_long_t seen = ATOMIC_LONG_INIT(0);
 static atomic_long_t captured = ATOMIC_LONG_INIT(0);
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 0)
 static unsigned int tcp_softirq_hook(void *priv, struct sk_buff *skb,
 				     const struct nf_hook_state *state)
-#else
-static unsigned int tcp_softirq_hook(const struct nf_hook_ops *ops,
-				     struct sk_buff *skb,
-				     const struct nf_hook_state *state)
-#endif
 {
 	struct iphdr *iph;
-	struct tcphdr *tcph;
+	struct tcphdr _tcph, *tcph;
 	unsigned long n;
 
 	if (!skb)
@@ -42,13 +35,15 @@ static unsigned int tcp_softirq_hook(const struct nf_hook_ops *ops,
 	if (n % SAMPLE_EVERY != 0)
 		return NF_ACCEPT;
 
+	tcph = skb_header_pointer(skb, skb_transport_offset(skb), sizeof(_tcph), &_tcph);
+	if (!tcph)
+		return NF_ACCEPT;
 	atomic_long_inc(&captured);
-	tcph = tcp_hdr(skb);
-	pr_info("[cpu#%u] captured #%lu/%lu: %pI4:%u -> %pI4:%u  in_hardirq=%s in_softirq=%s in_task=%s\n",
+	pr_info("[cpu#%u] captured #%lu/%lu: %pI4:%u -> %pI4:%u  in_hardirq=%s in_softirq=%s in_serving_softirq=%s in_task=%s\n",
 		smp_processor_id(), n - SAMPLE_EVERY + 1, n, &iph->saddr,
 		ntohs(tcph->source), &iph->daddr, ntohs(tcph->dest),
 		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N",
-		in_task() ? "Y" : "N");
+		in_serving_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
 	return NF_ACCEPT;
 }
 
