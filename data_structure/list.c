@@ -165,9 +165,9 @@ static int __init user_info_init(void)
 		user = get_user_info(get_targets[i]);
 
 		if (user)
-			pr_info("%s is in the list and is %u years old\n", get_targets[i], user->age);
+			pr_info("'%s' is in the list and is %u years old\n", get_targets[i], user->age);
 		else
-			pr_info("%s is not in the list\n", get_targets[i]);
+			pr_info("'%s' is not in the list\n", get_targets[i]);
 	}
 
 	user = get_user_info("username#3");
@@ -186,9 +186,9 @@ static int __init user_info_init(void)
 	for (i = 0; i < ARRAY_SIZE(delete_targets); i++) {
 		ret = delete_user_info(delete_targets[i]);
 		if (ret)
-			pr_info("there is no %s to delete (%pe)\n", delete_targets[i], ERR_PTR(ret));
+			pr_info("there is no '%s' to delete (%pe)\n", delete_targets[i], ERR_PTR(ret));
 		else
-			pr_info("deleted %s\n", delete_targets[i]);
+			pr_info("deleted '%s'\n", delete_targets[i]);
 	}
 
 	print_all_user_infos();
