@@ -59,11 +59,13 @@ documents itself by printing to the kernel log, so `dmesg` after `insmod` is the
 explanation.
 
 Samples are registered explicitly, the way the kernel lists every object in its
-Kbuild files: there is no globbing. The top-level `Makefile` holds a `SAMPLES`
-list, and a sample is built only once it is added there (see "Registering a
-sample"). Because only the registered module source (`<sample>.c`, or the
-objects a `sample.mk` declares) is compiled, a userspace companion file next to
-it may be named anything and is simply ignored by the module build.
+Kbuild files: there is no globbing. The registry has two levels. The top-level
+`Makefile` holds a `SAMPLE_DIRS` list of topic directories, and each topic
+directory holds a `manifest.mk` naming the samples inside it. A sample is built
+only once it is listed in both places (see "Registering a sample"). Because
+only the registered module source (`<sample>.c`, or the objects a `sample.mk`
+declares) is compiled, a userspace companion file next to it may be named
+anything and is simply ignored by the module build.
 
 ## Anatomy of a sample (composition principle)
 
@@ -145,7 +147,8 @@ module — including the kernel's own `samples/` — delegates to
 make <theme>/<sample>
   |
   +- top Makefile
-  |    - reads the explicit SAMPLES list (no globbing)
+  |    - reads the explicit SAMPLE_DIRS list (no globbing)
+  |    - include <topic dir>/manifest.mk for each  (explicit sample names)
   |    - applies defaults (host KVER/KDIR; ARCH/CROSS_COMPILE empty)
   |    - -include config.mk   (optional, PC-local persistent target)
   |
@@ -160,10 +163,12 @@ make <theme>/<sample>
 ```
 
 - **Explicit, not globbed.** Like the kernel's `obj-m`, the build target list is
-  declared, never inferred from whatever `.c` files happen to be present. This is
-  deterministic, keeps stray or work-in-progress files out of the build, and lets
-  module sources, userspace helpers, and generated files share a directory
-  safely.
+  declared, never inferred from whatever `.c` files happen to be present. The
+  top `Makefile` names the topic directories, and each directory's
+  `manifest.mk` names its samples, mirroring the kernel's per-directory Kbuild
+  files. This is deterministic, keeps stray or work-in-progress files out of the
+  build, and lets module sources, userspace helpers, and generated files share
+  a directory safely.
 - **One entry point.** The top `Makefile` is the only thing you run. The
   generated `Kbuild` is a one-line `obj-m` manifest that kbuild's `M=` interface
   requires, so it is created at build time rather than committed (the repo tracks
@@ -179,15 +184,28 @@ make <theme>/<sample>
 
 A sample is built only when it is listed, mirroring the kernel's per-directory
 `obj-m`. Add the source at `<theme>/[<group>/]<name>.c`, then add the sample to
-the `SAMPLES` list in the top-level `Makefile`:
+the `samples` list in that directory's `manifest.mk`:
 
 ```make
-SAMPLES := \
-	smp/percpu/percpu_parallel
+# smp/percpu/manifest.mk
+samples := \
+	percpu_parallel
 ```
 
+When the topic directory is new, create its `manifest.mk` and add the directory
+to `SAMPLE_DIRS` in the top-level `Makefile`:
+
+```make
+SAMPLE_DIRS := \
+	smp/percpu
+```
+
+The top `Makefile` includes every listed `manifest.mk` and stops with an error
+when one is missing or its `samples` list is empty.
+
 Use a `sample.mk` only for a multi-file module or special build requirements
-(see the contract below).
+(see the contract below). `manifest.mk` says *which* samples a directory has;
+`sample.mk` says *how* they build.
 
 ### Running the build
 

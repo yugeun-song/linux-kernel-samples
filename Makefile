@@ -24,20 +24,27 @@ endif
 
 DRIVER  := scripts/kmod.mk
 
-SAMPLES := \
-	smp/percpu/percpu_parallel \
-	interrupts/hardirq/hardirq \
-	interrupts/hardirq/irq_none \
-	interrupts/hardirq/disable_irq \
-	interrupts/deferred/tasklet \
-	interrupts/deferred/bh_workqueue \
-	interrupts/deferred/workqueue_sample \
-	interrupts/deferred/threaded_irq \
-	interrupts/deferred/timer_softirq \
-	interrupts/deferred/tcp_softirq_log \
-	interrupts/danger/sleep_in_hardirq_danger \
-	interrupts/danger/sleep_in_softirq_danger \
-	interrupts/concurrency/interrupt_competition
+SAMPLE_DIRS := \
+	smp/percpu \
+	interrupts/hardirq \
+	interrupts/deferred \
+	interrupts/danger \
+	interrupts/concurrency \
+	data_structure
+
+SAMPLES :=
+define import_manifest
+ifeq ($$(wildcard $(1)/manifest.mk),)
+$$(error $(1)/manifest.mk: not found (listed in SAMPLE_DIRS))
+endif
+samples :=
+include $(1)/manifest.mk
+ifeq ($$(strip $$(samples)),)
+$$(error $(1)/manifest.mk: samples is empty)
+endif
+SAMPLES += $$(addprefix $(1)/,$$(samples))
+endef
+$(foreach d,$(SAMPLE_DIRS),$(eval $(call import_manifest,$(d))))
 
 PASS := KVER='$(KVER)' KDIR='$(KDIR)'
 ifneq ($(ARCH),)
