@@ -8,8 +8,6 @@
 #include <linux/stddef.h>
 #include <linux/types.h>
 
-#define naive_container_of(ptr, type, member) ((type *)((char *)(ptr) - offsetof(type, member)))
-
 #define pr_check(expr) pr_info("  %-44s : %s\n", #expr, (expr) ? "yes" : "no")
 
 struct inner_struct {
@@ -79,7 +77,6 @@ static int __init container_of_example_init(void)
 	value_ptr = &obj.aligned_value;
 	from_value = container_of(value_ptr, struct some_struct, aligned_value);
 #ifdef CONTAINER_OF_TYPE_MISMATCH
-	from_value = naive_container_of(value_ptr, struct some_struct, tail);
 	from_value = container_of(value_ptr, struct some_struct, tail);
 #endif
 

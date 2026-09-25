@@ -36,8 +36,8 @@ kernel log, so `dmesg` after `insmod` is the lesson.
 | `interrupts/danger/sleep_in_{hardirq,softirq}_danger` | the illegal case: sleeping in atomic context |
 
 `make data_structure/container_of KCFLAGS=-DCONTAINER_OF_TYPE_MISMATCH` passes a
-mistyped pointer to both `container_of()` and `naive_container_of()`. Only
-`container_of()` stops the build, on its `static_assert(__same_type(...))`.
+mistyped pointer to `container_of()`, which stops the build on its
+`static_assert(__same_type(...))`; raw `offsetof()` arithmetic has no such check.
 `KCFLAGS=-DCONTAINER_OF_CONST_LOSS` writes through the struct recovered from a
 const member pointer: `container_of()` drops the const and compiles, while
 `container_of_const()` stops the build.
