@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: 0BSD
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
+#include <linux/container_of.h>
 #include <linux/err.h>
 #include <linux/errno.h>
 #include <linux/list.h>
