@@ -128,8 +128,8 @@ static struct tasklet_struct danger_bh;
 
 static void softirq_danger_bottom_half(struct tasklet_struct *t)
 {
-	pr_info("bottom half: in_hardirq=%s in_softirq=%s in_task=%s\n",
-		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
+	pr_info("bottom half: in_hardirq=%s in_softirq=%s in_task=%s\n", in_hardirq() ? "Y" : "N",
+		in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
 	if (!READ_ONCE(debugfs_danger_enabled)) {
 		/* SAFE mock path: the gate is off, so we do NOT sleep. */
 		pr_warn("danger_enabled=0: skipping the illegal in-softirq sleep (safe mock, no-op)\n");
@@ -148,14 +148,13 @@ static void softirq_danger_bottom_half(struct tasklet_struct *t)
 
 static irqreturn_t softirq_danger_top_half(int irq, void *dev_id)
 {
-	pr_info("top half: in_hardirq=%s in_softirq=%s in_task=%s\n",
-		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
+	pr_info("top half: in_hardirq=%s in_softirq=%s in_task=%s\n", in_hardirq() ? "Y" : "N",
+		in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
 	tasklet_schedule(&danger_bh);
 	return IRQ_HANDLED;
 }
 
-static ssize_t trigger_write(struct file *file, const char __user *ubuf,
-			     size_t len, loff_t *ppos)
+static ssize_t trigger_write(struct file *file, const char __user *ubuf, size_t len, loff_t *ppos)
 {
 	int ret;
 
@@ -177,8 +176,8 @@ static int __init sleep_in_softirq_danger_init(void)
 {
 	int ret;
 
-	pr_info("init: in_hardirq=%s in_softirq=%s in_task=%s\n",
-		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
+	pr_info("init: in_hardirq=%s in_softirq=%s in_task=%s\n", in_hardirq() ? "Y" : "N",
+		in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
 
 	tasklet_setup(&danger_bh, softirq_danger_bottom_half);
 
@@ -233,8 +232,8 @@ err_kill_tasklet:
 
 static void __exit sleep_in_softirq_danger_exit(void)
 {
-	pr_info("exit: in_hardirq=%s in_softirq=%s in_task=%s\n",
-		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
+	pr_info("exit: in_hardirq=%s in_softirq=%s in_task=%s\n", in_hardirq() ? "Y" : "N",
+		in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
 	debugfs_remove(debug_dir);
 	free_irq(virq, NULL);
 	irq_dispose_mapping(virq);

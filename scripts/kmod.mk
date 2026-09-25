@@ -26,6 +26,7 @@ endif
 
 bdir := $(src)/.build-$(mod)
 srcs := $(if $(SAMPLE_OBJS),$(SAMPLE_OBJS:.o=.c),$(src_base).c)
+mod_objs := $(or $(SAMPLE_OBJS),$(if $(filter-out $(mod),$(src_base)),$(src_base).o))
 KBUILD_ARGS := M=$(bdir)
 ifneq ($(ARCH),)
 KBUILD_ARGS += ARCH=$(ARCH)
@@ -67,12 +68,14 @@ eff_arch := $(patsubst ppc%,powerpc,$(eff_arch))
 eff_arch := $(patsubst s390x,s390,$(eff_arch))
 endif
 ifeq ($(filter $(SAMPLE_SUPPORTED_ARCH),$(eff_arch)),)
-$(error $(SAMPLE) supports ARCH in [$(SAMPLE_SUPPORTED_ARCH)] (kbuild ARCH names); effective arch is $(eff_arch))
+$(error $(SAMPLE) supports ARCH in [$(SAMPLE_SUPPORTED_ARCH)] (kbuild ARCH names); \
+	effective arch is $(eff_arch))
 endif
 endif
 
 ifdef SAMPLE_REQUIRED_CONFIGS
-missing := $(strip $(foreach c,$(SAMPLE_REQUIRED_CONFIGS),$(if $(shell grep -hs '^$(c)=[ym]' $(KDIR)/.config),,$(c))))
+missing := $(strip $(foreach c,$(SAMPLE_REQUIRED_CONFIGS),\
+	$(if $(shell grep -hs '^$(c)=[ym]' $(KDIR)/.config),,$(c))))
 ifneq ($(missing),)
 $(error $(SAMPLE): required kernel configs not enabled in $(KDIR): $(missing))
 endif
@@ -93,7 +96,8 @@ endif
 ifdef SAMPLE_MAX_KVER
 highest := $(shell printf '%s\n%s\n' '$(SAMPLE_MAX_KVER)' '$(target_mm)' | sort -V | tail -n1)
 ifneq ($(highest),$(SAMPLE_MAX_KVER))
-$(error $(SAMPLE) requires kernel <= $(SAMPLE_MAX_KVER) (feature removed in a later kernel); target kernel is $(target_rel))
+$(error $(SAMPLE) requires kernel <= $(SAMPLE_MAX_KVER) (feature removed in a later kernel); \
+	target kernel is $(target_rel))
 endif
 endif
 
@@ -105,11 +109,12 @@ build:
 	@mkdir -p $(bdir)
 	@for c in $(srcs); do ln -sf $(src)/$$c $(bdir)/$$c; done
 	@echo 'obj-m := $(mod).o' > $(bdir)/Kbuild
-	@$(if $(SAMPLE_OBJS),echo '$(mod)-objs := $(SAMPLE_OBJS)' >> $(bdir)/Kbuild,$(if $(filter-out $(mod),$(src_base)),echo '$(mod)-objs := $(src_base).o' >> $(bdir)/Kbuild,:))
+	@$(if $(mod_objs),echo '$(mod)-objs := $(mod_objs)' >> $(bdir)/Kbuild,:)
 	$(MAKE) -C $(KDIR) $(KBUILD_ARGS) modules
 	@cp $(bdir)/$(mod).ko $(src)/$(mod).ko
 ifeq ($(SIGN),1)
-	@sh '$(SIGN_SCRIPT)' '$(KDIR)/scripts/sign-file' '$(SIGN_KEY)' '$(SIGN_CERT)' '$(src)/$(mod).ko'
+	@sh '$(SIGN_SCRIPT)' '$(KDIR)/scripts/sign-file' '$(SIGN_KEY)' '$(SIGN_CERT)' \
+		'$(src)/$(mod).ko'
 endif
 
 clean:

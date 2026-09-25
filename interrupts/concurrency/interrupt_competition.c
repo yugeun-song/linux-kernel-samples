@@ -73,8 +73,8 @@ static irqreturn_t interrupt_competition_top_half(int irq, void *dev_id)
 	val = shared_counter;
 	pending_seq = n;
 	spin_unlock_irqrestore(&counter_lock, flags);
-	pr_info("hardirq #%-3u CPU#%u -> shared_counter=%-4lu  in_hardirq=%s\n",
-		n, smp_processor_id(), val, in_hardirq() ? "Y" : "N");
+	pr_info("hardirq #%-3u CPU#%u -> shared_counter=%-4lu  in_hardirq=%s\n", n,
+		smp_processor_id(), val, in_hardirq() ? "Y" : "N");
 	tasklet_schedule(&bottom_half);
 	return IRQ_HANDLED;
 }
@@ -88,8 +88,8 @@ static void raise_thread_fn(unsigned int cpu)
 {
 	irq_set_irqchip_state(virq, IRQCHIP_STATE_PENDING, true);
 	this_cpu_inc(raises_done);
-	pr_info("CPU#%u raised the shared irq (%u/%u)\n", cpu,
-		this_cpu_read(raises_done), RAISES_PER_CPU);
+	pr_info("CPU#%u raised the shared irq (%u/%u)\n", cpu, this_cpu_read(raises_done),
+		RAISES_PER_CPU);
 }
 
 static struct smp_hotplug_thread raise_hotplug = {
@@ -103,9 +103,8 @@ static int __init interrupt_competition_init(void)
 {
 	int ret;
 
-	pr_info("init: in_hardirq=%s in_softirq=%s in_task=%s\n",
-		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N",
-		in_task() ? "Y" : "N");
+	pr_info("init: in_hardirq=%s in_softirq=%s in_task=%s\n", in_hardirq() ? "Y" : "N",
+		in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
 
 	tasklet_setup(&bottom_half, interrupt_competition_bottom_half);
 
@@ -129,8 +128,7 @@ static int __init interrupt_competition_init(void)
 		goto err_dispose_mapping;
 	}
 
-	pr_info("every online CPU will raise this one irq %d times at once\n",
-		RAISES_PER_CPU);
+	pr_info("every online CPU will raise this one irq %d times at once\n", RAISES_PER_CPU);
 	ret = smpboot_register_percpu_thread(&raise_hotplug);
 	if (ret) {
 		pr_err("smpboot_register_percpu_thread failed: %d\n", ret);
@@ -157,8 +155,7 @@ static void __exit interrupt_competition_exit(void)
 	irq_dispose_mapping(virq);
 	irq_domain_remove_sim(sim_domain);
 	tasklet_kill(&bottom_half);
-	pr_info("unloaded; hardirq_runs=%u shared_counter=%lu\n", hardirq_runs,
-		shared_counter);
+	pr_info("unloaded; hardirq_runs=%u shared_counter=%lu\n", hardirq_runs, shared_counter);
 }
 
 module_init(interrupt_competition_init);

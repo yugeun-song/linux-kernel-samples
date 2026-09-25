@@ -34,6 +34,7 @@ struct user_info {
 	char username[MAX_USERNAME_LENGTH];
 };
 
+/* clang-format off */
 static const char *const food_names[N_FOOD_CODES] = {
 	[BANANA] = "banana",
 	[KIWI] = "kiwi",
@@ -42,6 +43,8 @@ static const char *const food_names[N_FOOD_CODES] = {
 	[MILK] = "milk",
 	[HAM] = "ham",
 };
+
+/* clang-format on */
 
 static LIST_HEAD(g_user_info_list);
 
@@ -83,8 +86,8 @@ static inline void print_shopping_cart(const struct user_info *user)
 	unsigned int i;
 
 	for (i = 0; i < user->n_cart_items; i++)
-		len += scnprintf(cart + len, sizeof(cart) - len, "%s%s",
-				 i ? ", " : "", get_food_name(user->shopping_cart[i]));
+		len += scnprintf(cart + len, sizeof(cart) - len, "%s%s", i ? ", " : "",
+				 get_food_name(user->shopping_cart[i]));
 
 	pr_info("  cart(%u/%u): %s\n", user->n_cart_items, MAX_CART_SIZE,
 		user->n_cart_items ? cart : "(empty)");
@@ -137,7 +140,8 @@ static void free_all_user_infos(void)
 static int __init user_info_init(void)
 {
 	static const char *const get_targets[] = { "username#2", "username#4", "nobody" };
-	static const char *const delete_targets[] = { "username#1", "username#1", "username#4", "nobody" };
+	static const char *const delete_targets[] = { "username#1", "username#1", "username#4",
+						      "nobody" };
 	struct user_info *user;
 	unsigned int i;
 	unsigned int j;
@@ -168,7 +172,8 @@ static int __init user_info_init(void)
 		user = get_user_info(get_targets[i]);
 
 		if (user)
-			pr_info("'%s' is in the list and is %u years old\n", get_targets[i], user->age);
+			pr_info("'%s' is in the list and is %u years old\n", get_targets[i],
+				user->age);
 		else
 			pr_info("'%s' is not in the list\n", get_targets[i]);
 	}
@@ -189,7 +194,8 @@ static int __init user_info_init(void)
 	for (i = 0; i < ARRAY_SIZE(delete_targets); i++) {
 		ret = delete_user_info(delete_targets[i]);
 		if (ret)
-			pr_info("there is no '%s' to delete (%pe)\n", delete_targets[i], ERR_PTR(ret));
+			pr_info("there is no '%s' to delete (%pe)\n", delete_targets[i],
+				ERR_PTR(ret));
 		else
 			pr_info("deleted '%s'\n", delete_targets[i]);
 	}

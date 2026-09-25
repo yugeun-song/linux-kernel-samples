@@ -127,8 +127,8 @@ static bool debugfs_danger_enabled;
 
 static irqreturn_t hardirq_danger_top_half(int irq, void *dev_id)
 {
-	pr_info("top half: in_hardirq=%s in_softirq=%s in_task=%s\n",
-		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
+	pr_info("top half: in_hardirq=%s in_softirq=%s in_task=%s\n", in_hardirq() ? "Y" : "N",
+		in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
 	if (!READ_ONCE(debugfs_danger_enabled)) {
 		/*
 		 * SAFE mock path: the gate is off, so we do NOT perform the
@@ -149,8 +149,7 @@ static irqreturn_t hardirq_danger_top_half(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static ssize_t trigger_write(struct file *file, const char __user *ubuf,
-			     size_t len, loff_t *ppos)
+static ssize_t trigger_write(struct file *file, const char __user *ubuf, size_t len, loff_t *ppos)
 {
 	int ret;
 
@@ -172,8 +171,8 @@ static int __init sleep_in_hardirq_danger_init(void)
 {
 	int ret;
 
-	pr_info("init: in_hardirq=%s in_softirq=%s in_task=%s\n",
-		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
+	pr_info("init: in_hardirq=%s in_softirq=%s in_task=%s\n", in_hardirq() ? "Y" : "N",
+		in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
 
 	sim_domain = irq_domain_create_sim(NULL, SIM_IRQ_LINES);
 	if (IS_ERR(sim_domain)) {
@@ -224,8 +223,8 @@ err_remove_sim:
 
 static void __exit sleep_in_hardirq_danger_exit(void)
 {
-	pr_info("exit: in_hardirq=%s in_softirq=%s in_task=%s\n",
-		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
+	pr_info("exit: in_hardirq=%s in_softirq=%s in_task=%s\n", in_hardirq() ? "Y" : "N",
+		in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
 	debugfs_remove(debug_dir);
 	free_irq(virq, NULL);
 	irq_dispose_mapping(virq);

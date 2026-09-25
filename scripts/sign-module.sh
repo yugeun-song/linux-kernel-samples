@@ -14,7 +14,8 @@ fi
 
 if [ ! -f "$key" ] || [ ! -f "$cert" ]; then
 	if ! command -v openssl >/dev/null 2>&1; then
-		echo "sign-module: openssl missing and no key present -- leaving $(basename "$ko") UNSIGNED" >&2
+		echo "sign-module: openssl missing and no key present --" \
+			"leaving $(basename "$ko") UNSIGNED" >&2
 		exit 0
 	fi
 	echo "sign-module: generating a local signing key ($key)"
@@ -24,4 +25,5 @@ if [ ! -f "$key" ] || [ ! -f "$cert" ]; then
 fi
 
 "$sign_file" sha256 "$key" "$cert" "$ko"
-echo "sign-module: signed $(basename "$ko") -- enroll with 'sudo mokutil --import $cert' (reboot) to load under Secure Boot"
+echo "sign-module: signed $(basename "$ko") -- enroll with 'sudo mokutil --import $cert'" \
+	"(reboot) to load under Secure Boot"

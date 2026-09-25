@@ -279,10 +279,13 @@ is included for every sample in its directory, so it branches on
 ## Coding style
 
 Strict kernel style (hard tabs, 8 columns; see `.clang-format` and
-`.editorconfig`), with the column limit left unenforced. clangd needs the exact
-kbuild flags: `make compdb` builds `compile_commands.json` from the `.cmd` files
-in each `.build-<mod>/`, points every entry at the real source, and drops the
-GCC-only flags clang rejects. Build a sample before opening it in an editor.
+`.editorconfig`) with a 100-column limit, checkpatch's default, instead of the
+kernel's preferred 80. User-visible strings are never split, even past the
+limit, as kernel style requires; verbatim log captures in comments stay
+unwrapped too. clangd needs the exact kbuild flags: `make compdb` builds
+`compile_commands.json` from the `.cmd` files in each `.build-<mod>/`, points
+every entry at the real source, and drops the GCC-only flags clang rejects.
+Build a sample before opening it in an editor.
 
 ## License
 

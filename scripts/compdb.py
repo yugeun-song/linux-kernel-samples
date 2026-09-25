@@ -50,7 +50,8 @@ def probe(flag, triple):
     if triple:
         argv.append(f"--target={triple}")
     argv.append(flag)
-    return subprocess.run(argv, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
+    return subprocess.run(argv, stdout=subprocess.DEVNULL,
+                          stderr=subprocess.DEVNULL).returncode == 0
 
 
 def candidates(args):

@@ -8,8 +8,7 @@
 #include <linux/stddef.h>
 #include <linux/types.h>
 
-#define naive_container_of(ptr, type, member) \
-	((type *)((char *)(ptr) - offsetof(type, member)))
+#define naive_container_of(ptr, type, member) ((type *)((char *)(ptr) - offsetof(type, member)))
 
 #define pr_check(expr) pr_info("  %-40s : %s\n", #expr, (expr) ? "yes" : "no")
 

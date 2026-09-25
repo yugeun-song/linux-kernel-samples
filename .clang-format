@@ -4,7 +4,7 @@
 # Derived from the Linux kernel's own .clang-format (strict kernel style),
 # with two intentional, project-wide deviations:
 #   1. RemoveBracesLLVM: true -> omit braces on single statements (kernel style).
-#   2. ColumnLimit: 0          -> do not enforce a hard column limit / no reflow.
+#   2. ColumnLimit: 100        -> checkpatch's limit instead of the kernel's 80.
 #
 # Note: RemoveBracesLLVM requires clang-format >= 14. The canonical, exhaustive
 # ForEachMacros list lives in the kernel tree's own .clang-format; the set
@@ -48,8 +48,8 @@ AllowShortFunctionsOnASingleLine: None
 AllowShortIfStatementsOnASingleLine: false
 AllowShortLoopsOnASingleLine: false
 
-# --- Deviation #2: do not enforce a hard column limit ---
-ColumnLimit: 0
+# --- Deviation #2: 100 columns, checkpatch's default, instead of 80 ---
+ColumnLimit: 100
 ReflowComments: false
 
 # --- Pointers, spacing, alignment ---
@@ -69,6 +69,7 @@ AlignConsecutiveAssignments: false
 AlignConsecutiveDeclarations: false
 
 # --- Misc kernel conventions ---
+BreakStringLiterals: false
 Cpp11BracedListStyle: false
 KeepEmptyLinesAtTheStartOfBlocks: false
 MaxEmptyLinesToKeep: 1

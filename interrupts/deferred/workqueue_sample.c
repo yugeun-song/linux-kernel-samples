@@ -24,8 +24,8 @@ static void workqueue_sample_bottom_half(struct work_struct *work)
 {
 	void *buf;
 
-	pr_info("bottom half: in_hardirq=%s in_softirq=%s in_task=%s\n",
-		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
+	pr_info("bottom half: in_hardirq=%s in_softirq=%s in_task=%s\n", in_hardirq() ? "Y" : "N",
+		in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
 
 	buf = kmalloc(64, GFP_KERNEL);
 	if (!buf) {
@@ -43,8 +43,8 @@ static DECLARE_WORK(bottom_half, workqueue_sample_bottom_half);
 
 static irqreturn_t workqueue_sample_top_half(int irq, void *dev_id)
 {
-	pr_info("top half: in_hardirq=%s in_softirq=%s in_task=%s\n",
-		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
+	pr_info("top half: in_hardirq=%s in_softirq=%s in_task=%s\n", in_hardirq() ? "Y" : "N",
+		in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
 	pr_info("queueing the process-context bottom half\n");
 	queue_work(proc_wq, &bottom_half);
 	return IRQ_HANDLED;
@@ -54,8 +54,8 @@ static int __init workqueue_sample_init(void)
 {
 	int ret;
 
-	pr_info("init: in_hardirq=%s in_softirq=%s in_task=%s\n",
-		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
+	pr_info("init: in_hardirq=%s in_softirq=%s in_task=%s\n", in_hardirq() ? "Y" : "N",
+		in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
 
 	proc_wq = alloc_workqueue(KBUILD_MODNAME, 0, 0);
 	if (!proc_wq) {
@@ -104,8 +104,8 @@ err_destroy_wq:
 
 static void __exit workqueue_sample_exit(void)
 {
-	pr_info("exit: in_hardirq=%s in_softirq=%s in_task=%s\n",
-		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
+	pr_info("exit: in_hardirq=%s in_softirq=%s in_task=%s\n", in_hardirq() ? "Y" : "N",
+		in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
 	free_irq(virq, NULL);
 	irq_dispose_mapping(virq);
 	irq_domain_remove_sim(sim_domain);
