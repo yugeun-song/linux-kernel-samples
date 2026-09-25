@@ -20,7 +20,7 @@ kernel log, so `dmesg` after `insmod` is the lesson.
 
 | sample | shows |
 |--------|-------|
-| `data_structure/container_of` | member offsets and tail padding, and the outer struct recovered from a direct, a nested (in one or two steps), a tail and an offset-0 member |
+| `data_structure/container_of` | member offsets and tail padding, and the outer struct recovered from a direct, a nested (in one or two steps), a tail and an offset-0 member, then again by `container_of_const()` from a const view |
 | `data_structure/list` | a `list_head` list: build, walk, look up, update, delete |
 | `smp/percpu/percpu_parallel` | per-CPU counters, one hotplug-safe smpboot kthread per CPU |
 | `interrupts/hardirq/hardirq` | a top-half handler on a simulated irq |
@@ -38,6 +38,9 @@ kernel log, so `dmesg` after `insmod` is the lesson.
 `make data_structure/container_of KCFLAGS=-DCONTAINER_OF_TYPE_MISMATCH` passes a
 mistyped pointer to both `container_of()` and `naive_container_of()`. Only
 `container_of()` stops the build, on its `static_assert(__same_type(...))`.
+`KCFLAGS=-DCONTAINER_OF_CONST_LOSS` writes through the struct recovered from a
+const member pointer: `container_of()` drops the const and compiles, while
+`container_of_const()` stops the build.
 
 ## Building
 

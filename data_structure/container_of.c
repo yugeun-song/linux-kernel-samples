@@ -10,7 +10,7 @@
 
 #define naive_container_of(ptr, type, member) ((type *)((char *)(ptr) - offsetof(type, member)))
 
-#define pr_check(expr) pr_info("  %-40s : %s\n", #expr, (expr) ? "yes" : "no")
+#define pr_check(expr) pr_info("  %-44s : %s\n", #expr, (expr) ? "yes" : "no")
 
 struct inner_struct {
 	char marker;
@@ -50,6 +50,13 @@ static int __init container_of_example_init(void)
 	struct some_struct *from_nested;
 	struct some_struct *from_nested_value;
 	struct some_struct *from_tail;
+	const struct some_struct *const_obj = &obj;
+	const struct inner_struct *const_recovered_nested;
+	const struct some_struct *const_from_header;
+	const struct some_struct *const_from_value;
+	const struct some_struct *const_from_nested;
+	const struct some_struct *const_from_nested_value;
+	const struct some_struct *const_from_tail;
 
 	pr_info("container_of example loaded\n");
 
@@ -118,6 +125,28 @@ static int __init container_of_example_init(void)
 	pr_check((struct some_struct *)header_ptr == &obj);
 	pr_check((struct some_struct *)value_ptr == &obj);
 
+	const_from_value =
+		container_of_const(&const_obj->aligned_value, struct some_struct, aligned_value);
+	const_recovered_nested =
+		container_of_const(&const_obj->nested.value, struct inner_struct, value);
+	const_from_nested = container_of_const(const_recovered_nested, struct some_struct, nested);
+	const_from_nested_value =
+		container_of_const(&const_obj->nested.value, struct some_struct, nested.value);
+	const_from_tail = container_of_const(&const_obj->tail, struct some_struct, tail);
+	const_from_header = container_of_const(&const_obj->header, struct some_struct, header);
+#ifdef CONTAINER_OF_CONST_LOSS
+	container_of(&const_obj->tail, struct some_struct, tail)->tail = 0;
+	container_of_const(&const_obj->tail, struct some_struct, tail)->tail = 0;
+#endif
+
+	pr_info("[5] container_of_const on a const view\n");
+	pr_check(const_from_value == from_value);
+	pr_check(const_recovered_nested == recovered_nested);
+	pr_check(const_from_nested == from_nested);
+	pr_check(const_from_nested_value == from_nested_value);
+	pr_check(const_from_tail == from_tail);
+	pr_check(const_from_header == from_header);
+
 	pr_info("[check]\n");
 	pr_check(from_value == &obj);
 	pr_check(recovered_nested == &obj.nested);
@@ -138,5 +167,5 @@ module_init(container_of_example_init);
 module_exit(container_of_example_exit);
 
 MODULE_LICENSE("Dual BSD/GPL");
-MODULE_DESCRIPTION("Struct recovery from member pointers with container_of");
+MODULE_DESCRIPTION("Struct recovery from member pointers with container_of and container_of_const");
 MODULE_VERSION("1.0");
