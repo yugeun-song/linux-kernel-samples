@@ -20,7 +20,7 @@ kernel log, so `dmesg` after `insmod` is the lesson.
 
 | sample | shows |
 |--------|-------|
-| `data_structure/container_of` | member offsets, and the outer struct recovered from a direct, a nested and a tail member |
+| `data_structure/container_of` | member offsets and tail padding, and the outer struct recovered from a direct, a nested (in one or two steps), a tail and an offset-0 member |
 | `data_structure/list` | a `list_head` list: build, walk, look up, update, delete |
 | `smp/percpu/percpu_parallel` | per-CPU counters, one hotplug-safe smpboot kthread per CPU |
 | `interrupts/hardirq/hardirq` | a top-half handler on a simulated irq |
@@ -34,6 +34,10 @@ kernel log, so `dmesg` after `insmod` is the lesson.
 | `interrupts/deferred/tcp_softirq_log` | TCP receive running in `NET_RX_SOFTIRQ`, seen from a netfilter hook |
 | `interrupts/concurrency/interrupt_competition` | every CPU raising one shared irq, a counter kept gap-free by `spin_lock_irqsave` |
 | `interrupts/danger/sleep_in_{hardirq,softirq}_danger` | the illegal case: sleeping in atomic context |
+
+`make data_structure/container_of KCFLAGS=-DCONTAINER_OF_TYPE_MISMATCH` passes a
+mistyped pointer to both `container_of()` and `naive_container_of()`. Only
+`container_of()` stops the build, on its `static_assert(__same_type(...))`.
 
 ## Building
 

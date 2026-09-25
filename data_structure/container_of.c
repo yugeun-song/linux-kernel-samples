@@ -6,6 +6,11 @@
 #include <linux/stddef.h>
 #include <linux/types.h>
 
+#define naive_container_of(ptr, type, member) \
+	((type *)((char *)(ptr) - offsetof(type, member)))
+
+#define pr_check(expr) pr_info("  %-40s : %s\n", #expr, (expr) ? "YES" : "NO")
+
 struct inner_struct {
 	char marker;
 	int value;
@@ -34,18 +39,21 @@ static int __init container_of_example_init(void)
 		.tail = 0xbeef,
 	};
 
+	u8 *header_ptr;
 	u64 *value_ptr;
 	int *nested_value_ptr;
 	u16 *tail_ptr;
 	struct inner_struct *recovered_nested;
+	struct some_struct *from_header;
 	struct some_struct *from_value;
 	struct some_struct *from_nested;
+	struct some_struct *from_nested_value;
 	struct some_struct *from_tail;
 
 	pr_info("container_of example loaded\n");
 
 	pr_info("obj = %px\n", &obj);
-	pr_info("some_struct:\n");
+	pr_info("struct some_struct:\n");
 	pr_info("  offsetof(header)         = %zu\n", offsetof(struct some_struct, header));
 	pr_info("  offsetof(aligned_value)  = %zu\n", offsetof(struct some_struct, aligned_value));
 	pr_info("  offsetof(nested)         = %zu\n", offsetof(struct some_struct, nested));
@@ -54,44 +62,68 @@ static int __init container_of_example_init(void)
 	pr_info("  offsetof(nested.payload) = %zu\n", offsetof(struct some_struct, nested.payload));
 	pr_info("  offsetof(name)           = %zu\n", offsetof(struct some_struct, name));
 	pr_info("  offsetof(tail)           = %zu\n", offsetof(struct some_struct, tail));
+	pr_info("  offsetofend(tail)        = %zu\n", offsetofend(struct some_struct, tail));
+	pr_info("  sizeof                   = %zu\n", sizeof(struct some_struct));
+	pr_info("struct inner_struct:\n");
+	pr_info("  offsetofend(payload)     = %zu\n", offsetofend(struct inner_struct, payload));
+	pr_info("  sizeof                   = %zu\n", sizeof(struct inner_struct));
 
 	value_ptr = &obj.aligned_value;
 	from_value = container_of(value_ptr, struct some_struct, aligned_value);
+#ifdef CONTAINER_OF_TYPE_MISMATCH
+	from_value = naive_container_of(value_ptr, struct some_struct, tail);
+	from_value = container_of(value_ptr, struct some_struct, tail);
+#endif
 
 	pr_info("[1] direct member\n");
 	pr_info("  value_ptr     = %px\n", value_ptr);
-	pr_info("  recovered     = %px\n", from_value);
+	pr_info("  from_value    = %px\n", from_value);
 	pr_info("  name          = %s\n", from_value->name);
 	pr_info("  aligned_value = 0x%llx\n", from_value->aligned_value);
 
 	nested_value_ptr = &obj.nested.value;
 	recovered_nested = container_of(nested_value_ptr, struct inner_struct, value);
 	from_nested = container_of(recovered_nested, struct some_struct, nested);
+	from_nested_value = container_of(nested_value_ptr, struct some_struct, nested.value);
 
 	pr_info("[2] nested structure\n");
-	pr_info("  nested.value     = %px\n", nested_value_ptr);
-	pr_info("  recovered_nested = %px\n", recovered_nested);
-	pr_info("  recovered_outer  = %px\n", from_nested);
-	pr_info("  marker           = %c\n", recovered_nested->marker);
-	pr_info("  value            = %d\n", recovered_nested->value);
-	pr_info("  payload          = %d, %d, %d\n", recovered_nested->payload[0],
+	pr_info("  nested_value_ptr  = %px\n", nested_value_ptr);
+	pr_info("  recovered_nested  = %px\n", recovered_nested);
+	pr_info("  from_nested       = %px\n", from_nested);
+	pr_info("  from_nested_value = %px\n", from_nested_value);
+	pr_info("  marker            = %c\n", recovered_nested->marker);
+	pr_info("  value             = %d\n", recovered_nested->value);
+	pr_info("  payload           = %d, %d, %d\n", recovered_nested->payload[0],
 		recovered_nested->payload[1], recovered_nested->payload[2]);
-	pr_info("  name             = %s\n", from_nested->name);
+	pr_info("  name              = %s\n", from_nested->name);
 
 	tail_ptr = &obj.tail;
 	from_tail = container_of(tail_ptr, struct some_struct, tail);
 
 	pr_info("[3] member near the end\n");
 	pr_info("  tail_ptr  = %px\n", tail_ptr);
-	pr_info("  recovered = %px\n", from_tail);
+	pr_info("  from_tail = %px\n", from_tail);
 	pr_info("  tail      = 0x%x\n", from_tail->tail);
 	pr_info("  name      = %s\n", from_tail->name);
 
+	header_ptr = &obj.header;
+	from_header = container_of(header_ptr, struct some_struct, header);
+
+	pr_info("[4] member at offset 0\n");
+	pr_info("  header_ptr  = %px\n", header_ptr);
+	pr_info("  from_header = %px\n", from_header);
+	pr_info("  header      = 0x%x\n", from_header->header);
+	pr_info("  name        = %s\n", from_header->name);
+	pr_check((struct some_struct *)header_ptr == &obj);
+	pr_check((struct some_struct *)value_ptr == &obj);
+
 	pr_info("[check]\n");
-	pr_info("  from_value == &obj              : %s\n", from_value == &obj ? "YES" : "NO");
-	pr_info("  from_nested == &obj             : %s\n", from_nested == &obj ? "YES" : "NO");
-	pr_info("  from_tail == &obj               : %s\n", from_tail == &obj ? "YES" : "NO");
-	pr_info("  recovered_nested == &obj.nested : %s\n", recovered_nested == &obj.nested ? "YES" : "NO");
+	pr_check(from_value == &obj);
+	pr_check(recovered_nested == &obj.nested);
+	pr_check(from_nested == &obj);
+	pr_check(from_nested_value == &obj);
+	pr_check(from_tail == &obj);
+	pr_check(from_header == &obj);
 
 	return 0;
 }
