@@ -212,7 +212,9 @@ The minimal shape:
 // SPDX-License-Identifier: 0BSD
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
+#include <linux/init.h>
 #include <linux/module.h>
+#include <linux/printk.h>
 
 static int __init demo_init(void)
 {

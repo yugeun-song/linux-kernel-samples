@@ -105,9 +105,11 @@
  */
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
+#include <linux/compiler.h>
 #include <linux/debugfs.h>
 #include <linux/delay.h>
 #include <linux/err.h>
+#include <linux/errno.h>
 #include <linux/fs.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
@@ -116,6 +118,7 @@
 #include <linux/module.h>
 #include <linux/preempt.h>
 #include <linux/printk.h>
+#include <linux/types.h>
 
 #define SIM_IRQ_LINES 1
 #define SIM_IRQ_HWIRQ 0

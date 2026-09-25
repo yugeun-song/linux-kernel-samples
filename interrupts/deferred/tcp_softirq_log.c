@@ -2,6 +2,7 @@
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
 #include <linux/atomic.h>
+#include <linux/in.h>
 #include <linux/init.h>
 #include <linux/ip.h>
 #include <linux/module.h>
@@ -9,6 +10,7 @@
 #include <linux/netfilter_ipv4.h>
 #include <linux/preempt.h>
 #include <linux/printk.h>
+#include <linux/skbuff.h>
 #include <linux/smp.h>
 #include <linux/tcp.h>
 #include <net/net_namespace.h>

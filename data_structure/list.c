@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: 0BSD
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
+#include <linux/array_size.h>
 #include <linux/container_of.h>
 #include <linux/err.h>
 #include <linux/errno.h>
@@ -10,7 +11,9 @@
 #include <linux/printk.h>
 #include <linux/random.h>
 #include <linux/slab.h>
+#include <linux/sprintf.h>
 #include <linux/string.h>
+#include <linux/types.h>
 
 #define MAX_USERNAME_LENGTH 32
 #define MAX_CART_SIZE 10
