@@ -112,6 +112,6 @@ static void __exit bh_workqueue_exit(void)
 module_init(bh_workqueue_init);
 module_exit(bh_workqueue_exit);
 
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("BH workqueue bottom half in softirq context");
 MODULE_VERSION("1.0");

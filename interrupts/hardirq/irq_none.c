@@ -81,6 +81,6 @@ static void __exit irq_none_exit(void)
 module_init(irq_none_init);
 module_exit(irq_none_exit);
 
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("Hardirq handler returning IRQ_NONE to disown a foreign line");
 MODULE_VERSION("1.0");

@@ -44,6 +44,6 @@ static void __exit timer_softirq_exit(void)
 module_init(timer_softirq_init);
 module_exit(timer_softirq_exit);
 
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("Timer bottom half in TIMER_SOFTIRQ context");
 MODULE_VERSION("1.0");

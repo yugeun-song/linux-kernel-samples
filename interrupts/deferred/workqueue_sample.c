@@ -116,6 +116,6 @@ static void __exit workqueue_sample_exit(void)
 module_init(workqueue_sample_init);
 module_exit(workqueue_sample_exit);
 
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("Workqueue bottom half in process context");
 MODULE_VERSION("1.0");

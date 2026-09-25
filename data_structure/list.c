@@ -210,6 +210,6 @@ static void __exit user_info_exit(void)
 module_init(user_info_init);
 module_exit(user_info_exit);
 
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("linked list sample in linux kernel");
 MODULE_VERSION("1.0");

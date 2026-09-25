@@ -101,6 +101,6 @@ static void __exit disable_irq_exit(void)
 module_init(disable_irq_init);
 module_exit(disable_irq_exit);
 
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("Masking a simulated irq with disable_irq/enable_irq");
 MODULE_VERSION("1.0");

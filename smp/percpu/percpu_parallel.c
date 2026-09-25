@@ -64,6 +64,6 @@ static void __exit percpu_parallel_exit(void)
 module_init(percpu_parallel_init);
 module_exit(percpu_parallel_exit);
 
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("Per-CPU counters via one smpboot kthread per CPU");
 MODULE_VERSION("1.0");

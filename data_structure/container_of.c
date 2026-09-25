@@ -104,6 +104,6 @@ static void __exit container_of_example_exit(void)
 module_init(container_of_example_init);
 module_exit(container_of_example_exit);
 
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("container_of example");
 MODULE_VERSION("1.0");

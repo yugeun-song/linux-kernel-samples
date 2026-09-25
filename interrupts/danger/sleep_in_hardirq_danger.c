@@ -236,6 +236,6 @@ static void __exit sleep_in_hardirq_danger_exit(void)
 module_init(sleep_in_hardirq_danger_init);
 module_exit(sleep_in_hardirq_danger_exit);
 
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("WARNING: sleeps in hardirq context (illegal, debugfs-gated)");
 MODULE_VERSION("1.0");

@@ -92,6 +92,6 @@ static void __exit hardirq_exit(void)
 module_init(hardirq_init);
 module_exit(hardirq_exit);
 
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("Hardirq top-half handler on a simulated irq");
 MODULE_VERSION("1.0");

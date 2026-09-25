@@ -164,6 +164,6 @@ static void __exit interrupt_competition_exit(void)
 module_init(interrupt_competition_init);
 module_exit(interrupt_competition_exit);
 
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("Every CPU races to raise one shared irq; counter guarded by spin_lock_irqsave");
 MODULE_VERSION("1.0");

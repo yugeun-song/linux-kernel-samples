@@ -224,7 +224,7 @@ static void __exit demo_exit(void)
 module_init(demo_init);
 module_exit(demo_exit);
 
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("one line: which theme this demonstrates");
 MODULE_VERSION("1.0");
 ```
@@ -235,11 +235,12 @@ MODULE_VERSION("1.0");
 - `pr_fmt` prefixes every `pr_*()` line with the module name. The kernel log is
   the only output a module has.
 - The SPDX line is the file's copyright license, 0BSD, and travels with a copied
-  file. `MODULE_LICENSE("GPL")` is a separate runtime tag: a non-GPL string
-  taints the kernel and blocks GPL-only exports, which the samples call (e.g.
-  `smpboot_register_percpu_thread()` and the irq_sim API; the kthread API
-  itself, `kthread_create_on_node()`/`kthread_stop()`, is a plain
-  `EXPORT_SYMBOL`).
+  file. `MODULE_LICENSE("Dual BSD/GPL")` tells the kernel the same license: a
+  BSD variant, named by the SPDX line, or GPL. The string is on the kernel's
+  GPL-compatible list, so the module avoids the proprietary taint and keeps the
+  GPL-only exports the samples call (e.g. `smpboot_register_percpu_thread()`
+  and the irq_sim API; the kthread API itself,
+  `kthread_create_on_node()`/`kthread_stop()`, is a plain `EXPORT_SYMBOL`).
 
 Registration is explicit, like the kernel's per-directory `obj-m`: only listed
 samples build, so work-in-progress files and userspace helpers can share a
@@ -276,3 +277,9 @@ Strict kernel style (hard tabs, 8 columns; see `.clang-format` and
 kbuild flags: `make compdb` builds `compile_commands.json` from the `.cmd` files
 in each `.build-<mod>/`, points every entry at the real source, and drops the
 GCC-only flags clang rejects. Build a sample before opening it in an editor.
+
+## License
+
+[0BSD](LICENSE): anyone may use, copy, modify and redistribute the code for any
+purpose, commercial included, with no conditions, not even attribution. Every
+source and build file carries `SPDX-License-Identifier: 0BSD`.

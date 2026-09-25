@@ -105,6 +105,6 @@ static void __exit threaded_irq_exit(void)
 module_init(threaded_irq_init);
 module_exit(threaded_irq_exit);
 
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("Threaded IRQ bottom half in a dedicated kthread");
 MODULE_VERSION("1.0");

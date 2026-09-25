@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: 0BSD
 # ---- Kernel module build artifacts (kbuild) ----
 *.o
 *.o.*

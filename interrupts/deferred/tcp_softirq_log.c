@@ -84,6 +84,6 @@ static void __exit tcp_softirq_exit(void)
 module_init(tcp_softirq_init);
 module_exit(tcp_softirq_exit);
 
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("Logs every Nth TCP packet via a netfilter hook (observe-only)");
 MODULE_VERSION("1.0");

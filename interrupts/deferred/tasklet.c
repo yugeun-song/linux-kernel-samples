@@ -106,6 +106,6 @@ static void __exit tasklet_sample_exit(void)
 module_init(tasklet_sample_init);
 module_exit(tasklet_sample_exit);
 
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("Tasklet bottom half in softirq context");
 MODULE_VERSION("1.0");

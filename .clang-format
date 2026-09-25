@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: 0BSD
 # clang-format configuration for linux-kernel-samples.
 #
 # Derived from the Linux kernel's own .clang-format (strict kernel style),
