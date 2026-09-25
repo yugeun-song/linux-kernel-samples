@@ -105,17 +105,17 @@
  */
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
-#include <linux/module.h>
-#include <linux/init.h>
-#include <linux/printk.h>
-#include <linux/err.h>
-#include <linux/interrupt.h>
-#include <linux/irqdomain.h>
-#include <linux/irq_sim.h>
 #include <linux/debugfs.h>
-#include <linux/fs.h>
 #include <linux/delay.h>
+#include <linux/err.h>
+#include <linux/fs.h>
+#include <linux/init.h>
+#include <linux/interrupt.h>
+#include <linux/irq_sim.h>
+#include <linux/irqdomain.h>
+#include <linux/module.h>
 #include <linux/preempt.h>
+#include <linux/printk.h>
 
 #define SIM_IRQ_LINES 1
 #define SIM_IRQ_HWIRQ 0

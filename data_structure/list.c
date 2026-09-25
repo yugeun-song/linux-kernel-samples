@@ -4,8 +4,10 @@
 #include <linux/container_of.h>
 #include <linux/err.h>
 #include <linux/errno.h>
+#include <linux/init.h>
 #include <linux/list.h>
 #include <linux/module.h>
+#include <linux/printk.h>
 #include <linux/random.h>
 #include <linux/slab.h>
 #include <linux/string.h>
@@ -24,6 +26,14 @@ enum food_code {
 	N_FOOD_CODES,
 };
 
+struct user_info {
+	struct list_head list_node;
+	enum food_code shopping_cart[MAX_CART_SIZE];
+	u8 age;
+	u8 n_cart_items;
+	char username[MAX_USERNAME_LENGTH];
+};
+
 static const char *const food_names[N_FOOD_CODES] = {
 	[BANANA] = "banana",
 	[KIWI] = "kiwi",
@@ -31,14 +41,6 @@ static const char *const food_names[N_FOOD_CODES] = {
 	[BREAD] = "bread",
 	[MILK] = "milk",
 	[HAM] = "ham",
-};
-
-struct user_info {
-	struct list_head list_node;
-	enum food_code shopping_cart[MAX_CART_SIZE];
-	u8 age;
-	u8 n_cart_items;
-	char username[MAX_USERNAME_LENGTH];
 };
 
 static LIST_HEAD(g_user_info_list);

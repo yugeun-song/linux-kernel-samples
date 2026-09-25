@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: 0BSD
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
-#include <linux/module.h>
 #include <linux/init.h>
+#include <linux/jiffies.h>
+#include <linux/module.h>
+#include <linux/preempt.h>
 #include <linux/printk.h>
 #include <linux/timer.h>
-#include <linux/jiffies.h>
-#include <linux/preempt.h>
 
 #define INTERVAL_MS 1000
 

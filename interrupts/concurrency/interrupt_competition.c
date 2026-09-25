@@ -17,19 +17,19 @@
  * softirq may cover several hardirqs, so it prints the most recent seq it saw.
  */
 
-#include <linux/module.h>
-#include <linux/init.h>
-#include <linux/printk.h>
 #include <linux/err.h>
+#include <linux/init.h>
 #include <linux/interrupt.h>
-#include <linux/irqdomain.h>
 #include <linux/irq_sim.h>
-#include <linux/spinlock.h>
-#include <linux/preempt.h>
-#include <linux/smp.h>
+#include <linux/irqdomain.h>
+#include <linux/module.h>
 #include <linux/percpu.h>
+#include <linux/preempt.h>
+#include <linux/printk.h>
 #include <linux/sched.h>
+#include <linux/smp.h>
 #include <linux/smpboot.h>
+#include <linux/spinlock.h>
 
 #define SIM_IRQ_LINES 1
 #define SIM_IRQ_HWIRQ 0

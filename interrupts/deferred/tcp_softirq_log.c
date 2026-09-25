@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: 0BSD
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
-#include <linux/module.h>
-#include <linux/init.h>
-#include <linux/printk.h>
 #include <linux/atomic.h>
+#include <linux/init.h>
+#include <linux/ip.h>
+#include <linux/module.h>
 #include <linux/netfilter.h>
 #include <linux/netfilter_ipv4.h>
-#include <linux/ip.h>
-#include <linux/tcp.h>
 #include <linux/preempt.h>
+#include <linux/printk.h>
 #include <linux/smp.h>
+#include <linux/tcp.h>
 #include <net/net_namespace.h>
 
 #define SAMPLE_EVERY 16
