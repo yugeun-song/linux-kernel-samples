@@ -1,38 +1,194 @@
 # linux-kernel-samples
 
-> **DISCLAIMER — read this before you build or load anything here.**
->
-> These are **out-of-tree Linux kernel modules** written for learning. A kernel
-> module runs in kernel space with full privileges, so a single bug can take down
-> the **entire machine**, not just one process.
->
-> **Do NOT load these on your host / daily-driver OS.** Use a throwaway virtual
-> machine or a spare/dev kernel you can afford to crash — not a system whose data
-> or uptime you care about.
->
-> **No warranty, no liability.** The code is provided strictly "as is" under 0BSD
-> (see [`LICENSE`](LICENSE)). The author accepts **no responsibility whatsoever**
-> for any damage or loss of any kind, including without limitation: security
-> compromise, kernel panic or hang, data loss or filesystem corruption, hardware
-> damage, a tainted or lockdown-restricted kernel, or a system left unbootable.
-> **You build, load, and run these modules entirely at your own risk.**
+> **Disclaimer.** These are out-of-tree Linux kernel modules written for
+> learning. A module runs in kernel space with full privileges, so one bug can
+> take down the whole machine. Load them only in a throwaway VM or on a spare
+> kernel you can afford to crash, never on a host whose data or uptime you care
+> about. The code is provided "as is" under 0BSD (see [`LICENSE`](LICENSE)), and
+> the author accepts no responsibility for any damage or loss of any kind,
+> including without limitation security compromise, kernel panic or hang, data
+> loss or filesystem corruption, hardware damage, a tainted or
+> lockdown-restricted kernel, or an unbootable system. You build, load, and run
+> these modules entirely at your own risk.
 
 Runnable Linux kernel modules for learning the kernel by doing. Each sample
-isolates one **main theme** — a struct, function, or macro — as a loadable
-module you build, `insmod`, observe in `dmesg`, and `rmmod`.
+isolates one theme (a struct, function, or macro) as a module you build,
+`insmod`, observe in `dmesg`, and `rmmod`. A sample explains itself through its
+kernel log, so `dmesg` after `insmod` is the lesson.
 
-The build system, coding-style configuration, and conventions are in place;
-sample modules are added on demand.
-The sections below double as study notes and as context for anyone that needs
-to understand how the repo is built and how a sample is composed.
+## Samples
 
-## Layout
+| sample | shows |
+|--------|-------|
+| `data_structure/container_of` | member offsets, and the outer struct recovered from a direct, a nested and a tail member |
+| `data_structure/list` | a `list_head` list: build, walk, look up, update, delete |
+| `smp/percpu/percpu_parallel` | per-CPU counters, one hotplug-safe smpboot kthread per CPU |
+| `interrupts/hardirq/hardirq` | a top-half handler on a simulated irq |
+| `interrupts/hardirq/irq_none` | returning `IRQ_NONE`, how a shared-irq handler says "not mine" |
+| `interrupts/hardirq/disable_irq` | a raise held back while the line is masked, then let through by `enable_irq` |
+| `interrupts/deferred/tasklet` | a bottom half in softirq context (no sleeping, `GFP_ATOMIC` only) |
+| `interrupts/deferred/bh_workqueue` | the BH workqueue (6.9+) that replaces tasklets, also in softirq context |
+| `interrupts/deferred/workqueue_sample` | a bottom half in process context (sleeping and `GFP_KERNEL` allowed) |
+| `interrupts/deferred/threaded_irq` | a bottom half in a dedicated irq kthread, also in process context |
+| `interrupts/deferred/timer_softirq` | a `timer_list` callback in `TIMER_SOFTIRQ` |
+| `interrupts/deferred/tcp_softirq_log` | TCP receive running in `NET_RX_SOFTIRQ`, seen from a netfilter hook |
+| `interrupts/concurrency/interrupt_competition` | every CPU raising one shared irq, a counter kept gap-free by `spin_lock_irqsave` |
+| `interrupts/danger/sleep_in_{hardirq,softirq}_danger` | the illegal case: sleeping in atomic context |
 
-Top-level directories are **themes**, named with kernel vocabulary where that is
-the most recognizable term and a clear word where it is not:
+## Building
+
+Prerequisites: headers for the target kernel (`linux-headers` on Arch,
+`linux-headers-$(uname -r)` on Debian/Ubuntu, `kernel-devel` on Fedora), a C
+toolchain, and root to load.
+
+```
+make                           # build and sign every sample, then compdb, tags, cscope
+make <theme>/<sample>          # one sample, e.g. make data_structure/container_of
+make <theme>/<sample> SIGN=0   # the same, unsigned
+make clean                     # clean every registered sample
+make list                      # list the registered samples
+make compdb                    # compile_commands.json for clangd
+make tags                      # ctags index (also: make cscope)
+```
+
+Modules are signed with a local key, `MOK.priv`/`MOK.der` (git-ignored),
+generated on the first build. The signature is harmless without Secure Boot.
+When `sign-file`, or `openssl` for a first key, is missing, the module stays
+unsigned with a warning.
+
+The running kernel is the default target. Override it per invocation, or pin it
+with the same variables (`KVER := ...`) in a git-ignored `config.mk`:
+
+```
+make <theme>/<sample> KVER=6.6.0-rpi KDIR=/path/to/rpi/kernel/build \
+    ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu-
+```
+
+### How the build works
+
+A `.ko` is linked into the running kernel at `insmod` time, so it must match
+that kernel's headers, `.config`, compiler flags and symbol versions (vermagic,
+`modpost`). Every sample therefore builds through the target kernel's own
+kbuild, and the repo ships sources, not prebuilt modules.
+
+| stage | does |
+|-------|------|
+| `Makefile` | reads `SAMPLE_DIRS` and each directory's `manifest.mk`, applies the target defaults and `config.mk` |
+| `scripts/kmod.mk` | includes `sample.mk`, runs the preflight, symlinks the sources into `.build-<mod>/` and writes its `Kbuild` |
+| `make -C $(KDIR) M=<dir>/.build-<mod> modules` | compiles and links `<mod>.ko`, which `kmod.mk` copies next to the source and signs |
+
+The preflight stops with `$(error)` when the source, the kernel build tree or a
+requested cross compiler is missing, or when the arch, a required `CONFIG` or
+the kernel version does not fit. Each sample builds in its own git-ignored
+`.build-<mod>/`, so `make -j` builds samples in parallel.
+
+## Loading
+
+Compiling is harmless; only loading is dangerous, so load only where a crash
+costs nothing (see [In a VM](#in-a-vm)).
+
+```
+sudo insmod data_structure/container_of.ko   # the .ko sits next to its source
+dmesg | tail
+sudo rmmod container_of
+```
+
+At load, the data structure samples log their walk-through, and the
+simulated-irq samples (`CONFIG_IRQ_SIM`) raise their irq and log the flow,
+except the danger ones, which wait to be fired by hand. `percpu_parallel` and
+`timer_softirq` log every second until `rmmod`. `tcp_softirq_log` logs every
+16th inbound IPv4 TCP packet and never creates traffic itself: repeat
+`curl http://127.0.0.1/` (`ping` is ICMP and does not count).
+
+The `interrupts/danger/` samples are the only ones with a debugfs control, and a
+plain load does nothing dangerous. Unarmed, `trigger` takes a safe mock path
+that only logs the skipped work. Armed, it sleeps in atomic context and can hang
+or crash the machine, so arm it only in a throwaway VM:
+
+```
+sudo insmod interrupts/danger/sleep_in_hardirq_danger.ko
+echo 1 | sudo tee /sys/kernel/debug/sleep_in_hardirq_danger/danger_enabled
+echo 1 | sudo tee /sys/kernel/debug/sleep_in_hardirq_danger/trigger
+dmesg | tail
+sudo rmmod sleep_in_hardirq_danger
+```
+
+Background for reading the logs:
+
+- The four simulated-irq samples in `interrupts/deferred/` share the same
+  hardirq top half and differ only in the bottom-half mechanism. Tasklets are
+  deprecated; the tasklet samples stay for the classic form.
+- A module cannot register a softirq vector of its own: `open_softirq` is not
+  exported, and the vector table is fixed at compile time. So `timer_softirq`
+  owns only a bottom half, and its top half is the kernel's own timer tick,
+  present on every machine.
+- `tcp_softirq_log` proves `NET_RX_SOFTIRQ` with its `in_serving_softirq=Y`
+  field. `in_softirq()` alone is `softirq_count()`, which is also nonzero under
+  `local_bh_disable()`.
+- In `interrupt_competition`, raises that land together merge or drop rather
+  than queue: irq_sim keeps one pending bit per line and one irq_work per
+  domain, and genirq refuses re-entry while the handler is in progress. The
+  handler thus runs one at a time, each softirq reports the hardirq it picked
+  up, and every raise, hardirq and softirq line names its CPU.
+- The simulated-irq samples act only on their own simulated line, never on a
+  real system interrupt.
+
+### In a VM
+
+A module can only be tested safely in a disposable kernel. Containers (Docker,
+Podman, toolbox) share the host kernel and do not help.
+
+- Any throwaway VM (multipass, GNOME Boxes, virt-manager, VirtualBox) works:
+  install the prerequisites inside it, then `make`, `insmod`, `dmesg`, `rmmod`.
+- [virtme-ng] (`apt`/`dnf install qemu-system-x86 virtme-ng`) boots the running
+  kernel in QEMU within seconds: run `vng -r` from the repo, with this directory
+  available and no disk image. vermagic matches, so no signing is needed, and a
+  panic only kills the VM. `vng -r -- <cmd>` runs a single command.
+
+[virtme-ng]: https://github.com/arighi/virtme-ng
+
+### Under Secure Boot
+
+Under Secure Boot the kernel runs in lockdown and rejects unsigned out-of-tree
+modules. `make` already signs them, so enroll the local key once instead of
+disabling Secure Boot:
+
+```
+sudo mokutil --import MOK.der    # set a one-time password
+# reboot, choose "Enroll MOK", enter the password
+```
+
+Re-run `make` after each change to re-sign. Signing fixes loadability only; the
+crash risk is unchanged.
+
+### Live addresses for debugging
+
+The loader places a module at a random base, not at the zero-based link-time
+addresses in the `.ko`. Read the live placement as root: the `sections/` files
+are mode 0400, and `kptr_restrict` blanks the other two for unprivileged
+readers.
+
+```
+sudo grep '\[hardirq\]' /proc/kallsyms       # each module symbol at its runtime address
+sudo grep '^hardirq ' /proc/modules          # 6.4+: the hex field before the taint flags (OE) is the .text base
+sudo cat /sys/module/hardirq/sections/.text  # the same base
+ls -a /sys/module/hardirq/sections/          # dotfiles; only non-empty sections exist
+```
+
+Through a kernel gdb stub (KGDB, or QEMU's `-s`), `add-symbol-file hardirq.ko
+0x<.text> -s .bss 0x<.bss>` gives source-level breakpoints, because the `.ko`
+carries `CONFIG_DEBUG_INFO` DWARF. The same DWARF decodes an oops frame
+`func+0x<off> [hardirq]` offline: `gdb hardirq.ko -ex 'list *(func+0x<off>)'`.
+The base is re-randomized on every load, so re-read it each time.
+
+## Writing a sample
+
+A sample is one `.c` file at `<theme>/[<group>/]<name>.c` that builds
+`<name>.ko` beside it. It covers one main theme and lives under the top-level
+directory that owns that theme. Directories are created on demand:
 
 | dir | theme |
-|------|-------|
+|-----|-------|
 | `module/` | module mechanics: init/exit, params, printk, symbols |
 | `process/` | `task_struct`, scheduling, fork, threads, namespaces |
 | `mm/` | pages, slab, kmalloc/vmalloc, `mm_struct`, VMAs |
@@ -43,375 +199,66 @@ the most recognizable term and a clear word where it is not:
 | `fs/` | file_operations, procfs/sysfs/debugfs, char devices |
 | `net/` | sk_buff, netdev, netfilter |
 | `arch/` | barriers, MSR/CR, arch-specific details |
-| `lib/` | generic data structures: list, rbtree, hashtable, idr |
-| `core/` | cross-cutting primitives: container_of, kref, ERR_PTR |
+| `data_structure/` | list, rbtree, hashtable, idr, and the `container_of` beneath them |
+| `core/` | cross-cutting primitives: kref, ERR_PTR, likely/unlikely |
 
-Placement rule: **one main theme per sample**, filed under the directory that
-best represents that theme (its "primary owner"). Cross-cutting primitives with
-no owner go in `lib/` (data structures) or `core/` (container_of, kref, ERR_PTR,
-likely/unlikely, ...). Directories are created on demand as samples are added.
-
-A sample is a single `.c` file under its theme, optionally grouped in a topic
-sub-folder: `<theme>/[<group>/]<name>.c`. The module is named after the source
-file (`<name>.ko`), and related samples share a topic folder (e.g.
-`smp/percpu/percpu_parallel.c`), mirroring the kernel's own `samples/` layout. A sample
-documents itself by printing to the kernel log, so `dmesg` after `insmod` is the
-explanation.
-
-Samples are registered explicitly, the way the kernel lists every object in its
-Kbuild files: there is no globbing. The registry has two levels. The top-level
-`Makefile` holds a `SAMPLE_DIRS` list of topic directories, and each topic
-directory holds a `manifest.mk` naming the samples inside it. A sample is built
-only once it is listed in both places (see "Registering a sample"). Because
-only the registered module source (`<sample>.c`, or the objects a `sample.mk`
-declares) is compiled, a userspace companion file next to it may be named
-anything and is simply ignored by the module build.
-
-## Anatomy of a sample (composition principle)
-
-A kernel module is not a `main()` program. It is object code linked into the
-running kernel, exposing two hooks the module loader calls. The minimal shape:
+The minimal shape:
 
 ```c
 // SPDX-License-Identifier: 0BSD
-#include <linux/init.h>
+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+
 #include <linux/module.h>
-#include <linux/kernel.h>
 
 static int __init demo_init(void)
 {
-	pr_info("demo: loaded\n");
+	pr_info("loaded\n");
 	return 0;
 }
 
 static void __exit demo_exit(void)
 {
-	pr_info("demo: unloaded\n");
+	pr_info("unloaded\n");
 }
 
 module_init(demo_init);
 module_exit(demo_exit);
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Yugeun Song");
 MODULE_DESCRIPTION("one line: which theme this demonstrates");
+MODULE_VERSION("1.0");
 ```
 
-Why each piece exists:
-
-- `module_init` / `module_exit` register the entry/exit hooks that `insmod` and
-  `rmmod` invoke. `init` returns `0` on success, or a negative errno to abort
-  loading.
-- `__init` / `__exit` are section annotations: `__init` code is discarded once
-  the module finishes loading; `__exit` is dropped when a module is built into
-  the kernel rather than loaded.
-- `pr_info` and friends write to the kernel ring buffer (`dmesg`). There is no
-  stdout in kernel space, so this is how a sample shows what it does.
-- `// SPDX-License-Identifier: 0BSD` on the first line is the file's copyright
-  license — 0BSD: use, modify, and redistribute freely, no attribution required
-  (full text in `LICENSE`). The tag rides with the file if a sample is copied out.
-- `MODULE_LICENSE("GPL")` is the kernel-runtime tag, distinct from the SPDX
-  copyright line: a non-GPL string taints the kernel and blocks access to
-  GPL-only exported symbols, so it stays `"GPL"` for the ones the samples call,
-  e.g. `smpboot_register_percpu_thread()` and the irq_sim API (the kthread API
+- `module_init`/`module_exit` register the hooks `insmod`/`rmmod` call. `init`
+  returns 0, or a negative errno to abort loading. `__init` code is discarded
+  after loading, and `__exit` code is dropped when the module is built in.
+- `pr_fmt` prefixes every `pr_*()` line with the module name. The kernel log is
+  the only output a module has.
+- The SPDX line is the file's copyright license, 0BSD, and travels with a copied
+  file. `MODULE_LICENSE("GPL")` is a separate runtime tag: a non-GPL string
+  taints the kernel and blocks GPL-only exports, which the samples call (e.g.
+  `smpboot_register_percpu_thread()` and the irq_sim API; the kthread API
   itself, `kthread_create_on_node()`/`kthread_stop()`, is a plain
-  `EXPORT_SYMBOL`). `MODULE_AUTHOR` and `MODULE_DESCRIPTION` are `modinfo`
-  metadata.
+  `EXPORT_SYMBOL`).
 
-## Build pipeline (how it works, and why)
-
-### Why the kernel build system is mandatory
-
-A `.ko` is loaded into the running kernel and linked against its symbols at
-`insmod` time, so it must be binary-compatible with the exact target kernel.
-That compatibility is owned entirely by that kernel's build tree:
-
-- **headers + config** — compiled against `$(KDIR)`'s headers and `.config`;
-  struct layouts (e.g. `task_struct`) differ across versions/configs, so
-  mismatched headers mean silent corruption.
-- **flags** — `-D__KERNEL__ -DMODULE`, freestanding, and the model /
-  stack-protector / retpoline / CFI options the kernel Makefiles define.
-- **modpost + vermagic** — after compiling, `modpost` emits `<mod>.mod.c` (whose
-  vermagic string encodes version + key config) and resolves symbols against
-  `Module.symvers`; `insmod` rejects a module whose vermagic/CRCs disagree.
-- **two-stage link** — the real `.ko` is `<mod>.o` linked with `<mod>.mod.o`.
-
-Reproducing all of this by hand (plain gcc/CMake) would mean reimplementing
-kbuild and modpost, and would break on every kernel change. So every out-of-tree
-module — including the kernel's own `samples/` — delegates to
-`make -C $(KERNELDIR) M=$(PWD) modules`.
-
-### Orchestration flow
-
-```
-make <theme>/<sample>
-  |
-  +- top Makefile
-  |    - reads the explicit SAMPLE_DIRS list (no globbing)
-  |    - include <topic dir>/manifest.mk for each  (explicit sample names)
-  |    - applies defaults (host KVER/KDIR; ARCH/CROSS_COMPILE empty)
-  |    - -include config.mk   (optional, PC-local persistent target)
-  |
-  +- scripts/kmod.mk   (per-sample driver; one recursive make per sample)
-       - -include <topic dir>/sample.mk   (optional requirements)
-       - module source: <name>.c, or the objects sample.mk declares
-       - preflight: $(error) and stop if the target is unsupported
-       - generates <topic dir>/Kbuild  (obj-m := <name>.o), git-ignored
-       |
-       +- make -C $(KDIR) [ARCH=.. CROSS_COMPILE=..] M=<abs topic dir> modules
-            - kernel build: CC -> MODPOST -> CC mod.o -> LD .ko -> BTF
-```
-
-- **Explicit, not globbed.** Like the kernel's `obj-m`, the build target list is
-  declared, never inferred from whatever `.c` files happen to be present. The
-  top `Makefile` names the topic directories, and each directory's
-  `manifest.mk` names its samples, mirroring the kernel's per-directory Kbuild
-  files. This is deterministic, keeps stray or work-in-progress files out of the
-  build, and lets module sources, userspace helpers, and generated files share
-  a directory safely.
-- **One entry point.** The top `Makefile` is the only thing you run. The
-  generated `Kbuild` is a one-line `obj-m` manifest that kbuild's `M=` interface
-  requires, so it is created at build time rather than committed (the repo tracks
-  sources and the build/doc files, never generated artifacts).
-- **Hard-fail preflight.** Before invoking the kernel build, the driver stops
-  with `$(error ...)` when: the kernel build tree is missing, a requested cross
-  compiler is absent, a sample's required `CONFIG` is off, the arch is
-  unsupported, or the kernel is older than a sample's minimum. An unsupported
-  target becomes an immediate, explicit failure instead of a confusing deep error
-  from inside the kernel build.
-
-### Registering a sample
-
-A sample is built only when it is listed, mirroring the kernel's per-directory
-`obj-m`. Add the source at `<theme>/[<group>/]<name>.c`, then add the sample to
-the `samples` list in that directory's `manifest.mk`:
+Registration is explicit, like the kernel's per-directory `obj-m`: only listed
+samples build, so work-in-progress files and userspace helpers can share a
+directory. Add the name to the directory's `manifest.mk`:
 
 ```make
-# smp/percpu/manifest.mk
+# data_structure/manifest.mk
 samples := \
-	percpu_parallel
+	container_of \
+	list
 ```
 
-When the topic directory is new, create its `manifest.mk` and add the directory
-to `SAMPLE_DIRS` in the top-level `Makefile`:
+A new directory also needs its own `manifest.mk` and an entry in `SAMPLE_DIRS`
+in the top-level `Makefile`. The build stops when a listed `manifest.mk` is
+missing or lists no samples.
 
-```make
-SAMPLE_DIRS := \
-	smp/percpu
-```
-
-The top `Makefile` includes every listed `manifest.mk` and stops with an error
-when one is missing or its `samples` list is empty.
-
-Use a `sample.mk` only for a multi-file module or special build requirements
-(see the contract below). `manifest.mk` says *which* samples a directory has;
-`sample.mk` says *how* they build.
-
-### Running the build
-
-```
-make                       # build (and sign) every sample, then compdb, tags, cscope
-make <theme>/<sample>      # build one, e.g. make smp/percpu/percpu_parallel
-make <theme>/<sample> SIGN=0   # build that sample without signing
-make clean                 # clean every registered sample
-make list                  # list registered samples
-make tags                  # ctags index for editor jumps (also: make cscope)
-make compdb                # compile_commands.json for clangd, from the kbuild .cmd files
-```
-
-`make` signs each built module by default, generating a local key
-(`MOK.priv`/`MOK.der`, git-ignored) on first build; that key is what lets the
-module load under Secure Boot once enrolled (see "Loading under Secure Boot").
-On a non-Secure-Boot system the signature is harmless. Pass `SIGN=0` to skip
-signing (also the graceful fallback if `openssl`/`sign-file` are unavailable).
-
-### Targeting another kernel or architecture
-
-The running host kernel is the default. Override per invocation:
-
-```
-make <theme>/<sample> \
-    KVER=6.6.0-rpi \
-    KDIR=/path/to/rpi/kernel/build \
-    ARCH=arm64 \
-    CROSS_COMPILE=aarch64-linux-gnu-
-```
-
-To pin a target without retyping, create a `config.mk` (git-ignored, since the
-target is a per-machine choice, not part of the repo):
-
-```make
-KVER          := 6.6.0-rpi
-KDIR          := /path/to/rpi/kernel/build
-ARCH          := arm64
-CROSS_COMPILE := aarch64-linux-gnu-
-```
-
-### Loading and observing
-
-Build prerequisites: matching kernel headers (`linux-headers-$(uname -r)` on
-Debian/Ubuntu, `kernel-devel` on Fedora), a C toolchain (`build-essential` or
-`@development-tools`), and root to load.
-
-Compiling is harmless; only **loading** is dangerous. The recommended path for
-everyone — and the only sane path for a newcomer — is a throwaway VM (next
-section). To load directly on the running kernel, only on a machine you can
-afford to crash:
-
-```
-sudo insmod smp/percpu/percpu_parallel.ko   # the .ko sits next to its source
-dmesg | tail
-sudo rmmod percpu_parallel
-```
-
-Some samples run on load: the per-cpu one starts its kthreads, the interrupt
-samples fire one simulated irq, and the timer softirq sample ticks every second
-until `rmmod`. Only the danger samples wait to be enabled and fired by hand, as
-the next section describes.
-
-#### Interrupt samples: load fires once, dmesg shows the flow
-
-The samples under `interrupts/` set up a simulated irq (via `CONFIG_IRQ_SIM`)
-and fire it **once at load**, so `dmesg` right after `insmod` shows the whole
-top-half/bottom-half flow:
-
-```
-sudo insmod interrupts/hardirq/hardirq.ko
-dmesg | tail
-sudo rmmod hardirq
-```
-
-Two more samples sit at the hardirq layer and exercise the top half's own
-controls instead of deferring. `irq_none` returns `IRQ_NONE` to disown a line
-whose device did not raise it -- how a shared-irq handler says "not mine" so the
-core tries the next handler. `disable_irq` masks its simulated line, raises it
-while masked to show the handler stays blocked, then calls `enable_irq` to let it
-through. Both act only on the module's own simulated irq, never a real system
-interrupt.
-
-The `interrupts/deferred/` samples each defer work from a top half to a
-bottom-half mechanism, and differ in that mechanism. `tasklet` and `bh_workqueue`
-run their bottom half in softirq context (no sleeping, `GFP_ATOMIC` only), while
-`workqueue_sample` and `threaded_irq` run theirs in process context (sleeping and
-`GFP_KERNEL` allowed); all four share the same simulated-hardirq top half.
-Tasklets are deprecated, and `bh_workqueue` shows their replacement, the BH
-workqueue (6.9+); the tasklet samples stay for the classic form.
-`timer_softirq` is the exception that proves the rule: a module cannot register a
-softirq vector of its own (`open_softirq` is not exported and the vector table is
-fixed at compile time), so it owns only a bottom half — a `timer_list` callback
-in `TIMER_SOFTIRQ` context — while the top half is the kernel's own timer-tick
-interrupt, present on every machine regardless of architecture or board.
-`tcp_softirq_log` likewise drives no simulated irq: it registers a netfilter
-LOCAL_IN hook that logs every Nth inbound TCP packet (always `NF_ACCEPT`,
-observe-only), showing that TCP receive runs in `NET_RX_SOFTIRQ` — its
-`in_serving_softirq=Y` field proves it (`in_softirq()` alone is
-`softirq_count()`, also nonzero under `local_bh_disable()`). Generate traffic
-from outside (a `ping`/`curl` to localhost is enough); the module never creates
-packets itself. The log lines name the context each half runs in and which
-allocations are legal there, so `dmesg` is the lesson.
-
-The `interrupts/concurrency/interrupt_competition` sample has every online CPU
-race to raise the SAME simulated irq — one per-CPU kthread each — so many cores
-push the same line at once. Because it is one line, raises that land together
-merge or drop rather than queue (irq_sim keeps one pending bit per line and one
-irq_work per domain, and genirq refuses re-entry while the handler is in
-progress), so the
-handler runs one at a time, and a single `spin_lock_irqsave()` keeps the shared
-counter gap-free across the hardirq and the softirq that follows. The log also
-traces the hardirq → softirq chain (each softirq reports which hardirq number it
-picked up), and every line names the CPU it ran on.
-
-The `interrupts/danger/` samples deliberately perform an **illegal** operation —
-sleeping in atomic (hardirq/softirq) context — to show what must never be done.
-Because that must never fire by accident, these are the **only** samples with a
-debugfs control, and they stay inert until you explicitly enable them. A plain
-load does nothing dangerous; you arm and fire by hand:
-
-```
-sudo insmod interrupts/danger/sleep_in_hardirq_danger.ko
-echo 1 | sudo tee /sys/kernel/debug/sleep_in_hardirq_danger/danger_enabled
-echo 1 | sudo tee /sys/kernel/debug/sleep_in_hardirq_danger/trigger
-dmesg | tail
-sudo rmmod sleep_in_hardirq_danger
-```
-
-Without the `danger_enabled` step, `trigger` takes a safe mock path that only
-logs that the dangerous work was skipped. The enabled path can hang or crash the
-machine, so do this **only in a throwaway VM**.
-
-#### Try it safely in a VM (no host risk)
-
-A module can only be loaded *into a kernel*, so the only safe way to test one is
-to give it a disposable kernel — a virtual machine. Containers (Docker, Podman,
-Fedora toolbox) do **not** help: they share the host kernel, so a bug still
-crashes the host.
-
-- **Beginner-friendly:** launch a throwaway Ubuntu/Fedora VM (`multipass`, GNOME
-  Boxes, virt-manager, or VirtualBox), install the prerequisites inside it, then
-  run the normal `make` + `insmod` + `dmesg` + `rmmod` there. If it crashes, you
-  just discard the VM.
-- **Fastest for kernel work:** [virtme-ng] (`vng`) boots your *current* kernel in
-  a QEMU VM in seconds, with this directory available and no disk image to build.
-  Install it (`sudo apt install qemu-system-x86 virtme-ng` on Ubuntu, `sudo dnf
-  install qemu-system-x86 virtme-ng` on Fedora), run `vng -r` from the repo to get a
-  throwaway VM on your own kernel, and do the normal `make` + `insmod` + `dmesg` +
-  `rmmod` inside it. vermagic matches (same kernel), so no signing is needed, and a
-  panic only kills the VM. See its docs for one-shot `vng -r -- <cmd>` usage.
-
-[virtme-ng]: https://github.com/arighi/virtme-ng
-
-#### Debugging a loaded sample: map it back to its live addresses
-
-A loaded module's code and data sit at whatever base the loader chose in the
-module mapping area, not the zero-based link-time addresses in the `.ko` (an
-`ET_REL` object relocated at load). Three interfaces expose that live placement;
-read them as root, since the `sections/` files are mode 0400 and `kptr_restrict`
-blanks the other two for unprivileged readers:
-
-```
-sudo grep '\[hardirq\]' /proc/kallsyms       # each module symbol at its runtime addr, tagged [hardirq]
-sudo grep '^hardirq ' /proc/modules          # ...Live 0xffffffffc0659000 (OE)  -> base, before the taint flag
-sudo cat /sys/module/hardirq/sections/.text  # 0xffffffffc0659000 -- the same base
-ls -a /sys/module/hardirq/sections/          # sections are dotfiles; only non-empty ones exist (hardirq has no .data)
-```
-
-On 6.4+ the `/proc/modules` address is the `.text` base: the hex field *before*
-the `(OE)` out-of-tree/unsigned taint flag, not the last token. Feed that base
-(plus any `.bss`/`.data` that exist) to gdb attached to the VM over a kernel gdb
-stub (KGDB, or QEMU's `-s`): `add-symbol-file hardirq.ko 0x<.text> -s .bss
-0x<.bss>` gives source-level breakpoints on the live module, because the `.ko`
-carries `CONFIG_DEBUG_INFO` DWARF. That same DWARF decodes an oops line
-`func+0x<off> [hardirq]` offline -- `gdb hardirq.ko -ex 'list *(func+0x<off>)'`
-prints the source line. The base is re-randomized each load, so re-read it every
-time; never hardcode it.
-
-#### Loading under Secure Boot (without turning it off)
-
-On a Secure Boot system the kernel runs in lockdown and rejects unsigned
-out-of-tree modules. You do **not** have to disable Secure Boot: `make` already
-signs the module (above) with a local key, so you only have to make the system
-trust that key once:
-
-```
-sudo mokutil --import MOK.der    # set a one-time password
-# reboot, then choose "Enroll MOK" in the blue manager and enter the password
-```
-
-After the key is enrolled, the signed module loads under Secure Boot with no
-further steps (just re-run `make` after any change to re-sign). Signing only
-fixes *loadability* — the crash risk is unchanged, so still prefer the VM above.
-
-#### Why no prebuilt `.ko` is shipped
-
-A `.ko` is bound to the exact kernel it was built against (its "vermagic"), so it
-loads only there — which is why this repo ships **source** and builds per kernel.
-The in-kernel API is also not stable across versions, so a sample may need
-rebuilding (or a small fix) on a very different kernel.
-
-## Per-sample build contract (`sample.mk`)
-
-Only needed for a sample with special requirements; an ordinary sample needs
-nothing but its `.c`. Recognized variables:
+Special build requirements go in an optional `sample.mk` beside the sources. It
+is included for every sample in its directory, so it branches on
+`$(notdir $(SAMPLE))` when the samples differ:
 
 | variable | meaning |
 |----------|---------|
@@ -420,15 +267,12 @@ nothing but its `.c`. Recognized variables:
 | `SAMPLE_REQUIRED_CONFIGS` | kernel configs that must be `=y`/`=m` (e.g. `CONFIG_KPROBES`) |
 | `SAMPLE_SUPPORTED_ARCH` | allowed arches, in kbuild ARCH names (e.g. `x86 arm64`) |
 | `SAMPLE_MIN_KVER` | minimum kernel version (e.g. `5.14`) |
-| `SAMPLE_MAX_KVER` | maximum kernel version, for an API removed in a later kernel (e.g. `6.7`) |
+| `SAMPLE_MAX_KVER` | maximum kernel version, for an API removed later (e.g. `6.7`) |
 
 ## Coding style
 
-Strict Linux kernel style (hard tabs, 8-column width; see `.clang-format` and
-`.editorconfig`) with one deliberate exception: the column limit is not strictly
-enforced. clangd needs the exact kernel build flags, or it reports false errors
-on kernel headers and macros. `make compdb` (also part of `make`) writes
-`compile_commands.json` from the `.cmd` files kbuild leaves in each
-`.build-<mod>` directory, pointing each entry at the real source rather than the
-build-dir symlink, and drops the GCC-only flags clang rejects. Build the samples
-at least once before opening them in an editor.
+Strict kernel style (hard tabs, 8 columns; see `.clang-format` and
+`.editorconfig`), with the column limit left unenforced. clangd needs the exact
+kbuild flags: `make compdb` builds `compile_commands.json` from the `.cmd` files
+in each `.build-<mod>/`, points every entry at the real source, and drops the
+GCC-only flags clang rejects. Build a sample before opening it in an editor.
