@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-#define pr_fmt(fmt) KBUILD_MODNAME ": %s() - " fmt, __func__
+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
 #include <linux/module.h>
 #include <linux/init.h>
@@ -39,7 +39,7 @@ static unsigned int tcp_softirq_hook(void *priv, struct sk_buff *skb,
 	if (!tcph)
 		return NF_ACCEPT;
 	atomic_long_inc(&captured);
-	pr_info("[cpu#%u] captured #%lu/%lu: %pI4:%u -> %pI4:%u  in_hardirq=%s in_softirq=%s in_serving_softirq=%s in_task=%s\n",
+	pr_info("[CPU#%u] captured #%lu/%lu: %pI4:%u -> %pI4:%u  in_hardirq=%s in_softirq=%s in_serving_softirq=%s in_task=%s\n",
 		smp_processor_id(), n - SAMPLE_EVERY + 1, n, &iph->saddr,
 		ntohs(tcph->source), &iph->daddr, ntohs(tcph->dest),
 		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N",
@@ -85,5 +85,5 @@ module_init(tcp_softirq_init);
 module_exit(tcp_softirq_exit);
 
 MODULE_LICENSE("Dual BSD/GPL");
-MODULE_DESCRIPTION("Logs every Nth TCP packet via a netfilter hook (observe-only)");
+MODULE_DESCRIPTION("Netfilter hook logging every Nth TCP packet (observe-only)");
 MODULE_VERSION("1.0");

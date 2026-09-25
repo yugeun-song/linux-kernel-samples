@@ -212,5 +212,5 @@ module_init(user_info_init);
 module_exit(user_info_exit);
 
 MODULE_LICENSE("Dual BSD/GPL");
-MODULE_DESCRIPTION("linked list sample in linux kernel");
+MODULE_DESCRIPTION("Linked list on list_head with lookup, update and delete");
 MODULE_VERSION("1.0");

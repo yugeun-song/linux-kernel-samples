@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-#define pr_fmt(fmt) KBUILD_MODNAME ": %s() - " fmt, __func__
+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
 #include <linux/module.h>
 #include <linux/init.h>
@@ -20,12 +20,12 @@ static void percpu_parallel_read_and_inc(unsigned int cpu)
 	long val = this_cpu_read(counter);
 
 	this_cpu_inc(counter);
-	pr_info("cpu%u=%ld\n", cpu, val);
+	pr_info("CPU%u=%ld\n", cpu, val);
 }
 
 static int percpu_parallel_should_run(unsigned int cpu)
 {
-	pr_info("cpu%u -> run\n", cpu);
+	pr_info("CPU%u -> run\n", cpu);
 	return 1;
 }
 

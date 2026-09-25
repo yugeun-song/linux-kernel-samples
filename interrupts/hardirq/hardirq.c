@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-#define pr_fmt(fmt) KBUILD_MODNAME ": %s() - " fmt, __func__
+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
 #include <linux/module.h>
 #include <linux/init.h>
@@ -93,5 +93,5 @@ module_init(hardirq_init);
 module_exit(hardirq_exit);
 
 MODULE_LICENSE("Dual BSD/GPL");
-MODULE_DESCRIPTION("Hardirq top-half handler on a simulated irq");
+MODULE_DESCRIPTION("Hardirq top-half handler on a simulated IRQ");
 MODULE_VERSION("1.0");

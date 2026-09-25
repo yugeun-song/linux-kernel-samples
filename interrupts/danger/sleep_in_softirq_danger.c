@@ -103,7 +103,7 @@
  * debugfs here is NOT part of the demo proper; it is the safety/test gate that
  * keeps the illegal path from ever firing by accident.
  */
-#define pr_fmt(fmt) KBUILD_MODNAME ": %s() - " fmt, __func__
+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
 #include <linux/module.h>
 #include <linux/init.h>
@@ -132,7 +132,7 @@ static void softirq_danger_bottom_half(struct tasklet_struct *t)
 		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
 	if (!READ_ONCE(debugfs_danger_enabled)) {
 		/* SAFE mock path: the gate is off, so we do NOT sleep. */
-		pr_warn("danger_enabled=0: skipping the ILLEGAL in-softirq sleep (safe mock, no-op)\n");
+		pr_warn("danger_enabled=0: skipping the illegal in-softirq sleep (safe mock, no-op)\n");
 		return;
 	}
 
@@ -141,7 +141,7 @@ static void softirq_danger_bottom_half(struct tasklet_struct *t)
 	 * strictly illegal and may BUG or wedge the kernel. It exists solely
 	 * to demonstrate what must NEVER be done in a tasklet/softirq.
 	 */
-	pr_warn("danger_enabled=1: about to sleep in softirq context -- this is ILLEGAL\n");
+	pr_warn("danger_enabled=1: about to sleep in softirq context -- this is illegal\n");
 	msleep(100);
 	pr_warn("returned from the illegal sleep; the system may now be unstable\n");
 }
@@ -216,7 +216,7 @@ static int __init sleep_in_softirq_danger_init(void)
 	debugfs_create_bool("danger_enabled", 0600, debug_dir, &debugfs_danger_enabled);
 	debugfs_create_file("trigger", 0200, debug_dir, NULL, &trigger_fops);
 
-	pr_info("ready: set .../%s/danger_enabled to 1 then write .../trigger for the ILLEGAL path; trigger alone is a safe mock\n",
+	pr_info("ready: set .../%s/danger_enabled to 1 then write .../trigger for the illegal path; trigger alone is a safe mock\n",
 		KBUILD_MODNAME);
 	return 0;
 
@@ -247,5 +247,5 @@ module_init(sleep_in_softirq_danger_init);
 module_exit(sleep_in_softirq_danger_exit);
 
 MODULE_LICENSE("Dual BSD/GPL");
-MODULE_DESCRIPTION("WARNING: sleeps in softirq context (illegal, debugfs-gated)");
+MODULE_DESCRIPTION("Illegal sleep in softirq context (debugfs-gated)");
 MODULE_VERSION("1.0");

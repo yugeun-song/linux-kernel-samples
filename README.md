@@ -229,7 +229,7 @@ module_init(demo_init);
 module_exit(demo_exit);
 
 MODULE_LICENSE("Dual BSD/GPL");
-MODULE_DESCRIPTION("one line: which theme this demonstrates");
+MODULE_DESCRIPTION("Minimal module skeleton");
 MODULE_VERSION("1.0");
 ```
 
@@ -237,7 +237,9 @@ MODULE_VERSION("1.0");
   returns 0, or a negative errno to abort loading. `__init` code is discarded
   after loading, and `__exit` code is dropped when the module is built in.
 - `pr_fmt` prefixes every `pr_*()` line with the module name. The kernel log is
-  the only output a module has.
+  the only output a module has. As in mainline, log lines start lowercase unless
+  they open with an identifier or acronym, and `MODULE_DESCRIPTION` is a
+  sentence-case noun phrase without a final period.
 - The SPDX line is the file's copyright license, 0BSD, and travels with a copied
   file. `MODULE_LICENSE("Dual BSD/GPL")` tells the kernel the same license: a
   BSD variant, named by the SPDX line, or GPL. The string is on the kernel's

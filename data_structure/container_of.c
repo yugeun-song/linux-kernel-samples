@@ -9,7 +9,7 @@
 #define naive_container_of(ptr, type, member) \
 	((type *)((char *)(ptr) - offsetof(type, member)))
 
-#define pr_check(expr) pr_info("  %-40s : %s\n", #expr, (expr) ? "YES" : "NO")
+#define pr_check(expr) pr_info("  %-40s : %s\n", #expr, (expr) ? "yes" : "no")
 
 struct inner_struct {
 	char marker;
@@ -137,5 +137,5 @@ module_init(container_of_example_init);
 module_exit(container_of_example_exit);
 
 MODULE_LICENSE("Dual BSD/GPL");
-MODULE_DESCRIPTION("container_of example");
+MODULE_DESCRIPTION("Struct recovery from member pointers with container_of");
 MODULE_VERSION("1.0");

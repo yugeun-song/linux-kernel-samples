@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-#define pr_fmt(fmt) KBUILD_MODNAME ": %s() - " fmt, __func__
+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
 /*
  * Every core competes for the SAME interrupt. One simulated irq (a single virq)
@@ -57,7 +57,7 @@ static void interrupt_competition_bottom_half(struct tasklet_struct *t)
 	shared_counter++;
 	val = shared_counter;
 	spin_unlock_irqrestore(&counter_lock, flags);
-	pr_info("softirq  cpu#%u picking up hardirq #%-3u -> shared_counter=%-4lu  in_softirq=%s\n",
+	pr_info("softirq  CPU#%u picking up hardirq #%-3u -> shared_counter=%-4lu  in_softirq=%s\n",
 		smp_processor_id(), seq, val, in_softirq() ? "Y" : "N");
 }
 
@@ -73,7 +73,7 @@ static irqreturn_t interrupt_competition_top_half(int irq, void *dev_id)
 	val = shared_counter;
 	pending_seq = n;
 	spin_unlock_irqrestore(&counter_lock, flags);
-	pr_info("hardirq #%-3u cpu#%u -> shared_counter=%-4lu  in_hardirq=%s\n",
+	pr_info("hardirq #%-3u CPU#%u -> shared_counter=%-4lu  in_hardirq=%s\n",
 		n, smp_processor_id(), val, in_hardirq() ? "Y" : "N");
 	tasklet_schedule(&bottom_half);
 	return IRQ_HANDLED;
@@ -88,7 +88,7 @@ static void raise_thread_fn(unsigned int cpu)
 {
 	irq_set_irqchip_state(virq, IRQCHIP_STATE_PENDING, true);
 	this_cpu_inc(raises_done);
-	pr_info("cpu#%u raised the shared irq (%u/%u)\n", cpu,
+	pr_info("CPU#%u raised the shared irq (%u/%u)\n", cpu,
 		this_cpu_read(raises_done), RAISES_PER_CPU);
 }
 
@@ -165,5 +165,5 @@ module_init(interrupt_competition_init);
 module_exit(interrupt_competition_exit);
 
 MODULE_LICENSE("Dual BSD/GPL");
-MODULE_DESCRIPTION("Every CPU races to raise one shared irq; counter guarded by spin_lock_irqsave");
+MODULE_DESCRIPTION("Shared IRQ raised by every CPU at once, counter guarded by spin_lock_irqsave");
 MODULE_VERSION("1.0");

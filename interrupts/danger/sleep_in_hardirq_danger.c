@@ -103,7 +103,7 @@
  * debugfs here is NOT part of the demo proper; it is the safety/test gate that
  * keeps the illegal path from ever firing by accident.
  */
-#define pr_fmt(fmt) KBUILD_MODNAME ": %s() - " fmt, __func__
+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
 #include <linux/module.h>
 #include <linux/init.h>
@@ -134,7 +134,7 @@ static irqreturn_t hardirq_danger_top_half(int irq, void *dev_id)
 		 * SAFE mock path: the gate is off, so we do NOT perform the
 		 * illegal sleep. This is the path taken on a plain trigger.
 		 */
-		pr_warn("danger_enabled=0: skipping the ILLEGAL in-hardirq sleep (safe mock, no-op)\n");
+		pr_warn("danger_enabled=0: skipping the illegal in-hardirq sleep (safe mock, no-op)\n");
 		return IRQ_HANDLED;
 	}
 
@@ -143,7 +143,7 @@ static irqreturn_t hardirq_danger_top_half(int irq, void *dev_id)
 	 * strictly illegal and may hang the CPU or BUG the kernel. It exists
 	 * solely to demonstrate what must NEVER be done in an interrupt handler.
 	 */
-	pr_warn("danger_enabled=1: about to sleep in hardirq context -- this is ILLEGAL\n");
+	pr_warn("danger_enabled=1: about to sleep in hardirq context -- this is illegal\n");
 	msleep(100);
 	pr_warn("returned from the illegal sleep; the system may now be unstable\n");
 	return IRQ_HANDLED;
@@ -209,7 +209,7 @@ static int __init sleep_in_hardirq_danger_init(void)
 	debugfs_create_bool("danger_enabled", 0600, debug_dir, &debugfs_danger_enabled);
 	debugfs_create_file("trigger", 0200, debug_dir, NULL, &trigger_fops);
 
-	pr_info("ready: set .../%s/danger_enabled to 1 then write .../trigger for the ILLEGAL path; trigger alone is a safe mock\n",
+	pr_info("ready: set .../%s/danger_enabled to 1 then write .../trigger for the illegal path; trigger alone is a safe mock\n",
 		KBUILD_MODNAME);
 	return 0;
 
@@ -237,5 +237,5 @@ module_init(sleep_in_hardirq_danger_init);
 module_exit(sleep_in_hardirq_danger_exit);
 
 MODULE_LICENSE("Dual BSD/GPL");
-MODULE_DESCRIPTION("WARNING: sleeps in hardirq context (illegal, debugfs-gated)");
+MODULE_DESCRIPTION("Illegal sleep in hardirq context (debugfs-gated)");
 MODULE_VERSION("1.0");

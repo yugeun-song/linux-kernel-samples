@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-#define pr_fmt(fmt) KBUILD_MODNAME ": %s() - " fmt, __func__
+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
 #include <linux/module.h>
 #include <linux/init.h>
@@ -102,5 +102,5 @@ module_init(disable_irq_init);
 module_exit(disable_irq_exit);
 
 MODULE_LICENSE("Dual BSD/GPL");
-MODULE_DESCRIPTION("Masking a simulated irq with disable_irq/enable_irq");
+MODULE_DESCRIPTION("Simulated IRQ masked with disable_irq/enable_irq");
 MODULE_VERSION("1.0");
