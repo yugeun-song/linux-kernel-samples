@@ -16,8 +16,8 @@
 #define SIM_IRQ_LINES 1
 #define SIM_IRQ_HWIRQ 0
 
-static struct irq_domain *sim_domain;
-static unsigned int virq;
+static struct irq_domain *gs_sim_domain;
+static unsigned int gs_virq;
 
 static irqreturn_t threaded_irq_top_half(int irq, void *dev_id)
 {
@@ -48,63 +48,64 @@ static irqreturn_t threaded_irq_bottom_half(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static int __init threaded_irq_init(void)
+static int __init threaded_irq_module_init(void)
 {
 	int ret;
 
 	pr_info("init: in_hardirq=%s in_softirq=%s in_task=%s\n", in_hardirq() ? "Y" : "N",
 		in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
 
-	sim_domain = irq_domain_create_sim(NULL, SIM_IRQ_LINES);
-	if (IS_ERR(sim_domain)) {
-		ret = PTR_ERR(sim_domain);
+	gs_sim_domain = irq_domain_create_sim(NULL, SIM_IRQ_LINES);
+	if (IS_ERR(gs_sim_domain)) {
+		ret = PTR_ERR(gs_sim_domain);
 		pr_err("irq_domain_create_sim failed: %d\n", ret);
 		return ret;
 	}
 
-	virq = irq_create_mapping(sim_domain, SIM_IRQ_HWIRQ);
-	if (!virq) {
+	gs_virq = irq_create_mapping(gs_sim_domain, SIM_IRQ_HWIRQ);
+	if (!gs_virq) {
 		pr_err("irq_create_mapping failed\n");
 		ret = -ENODEV;
 		goto err_remove_sim;
 	}
 
-	ret = request_threaded_irq(virq, threaded_irq_top_half, threaded_irq_bottom_half,
+	ret = request_threaded_irq(gs_virq, threaded_irq_top_half, threaded_irq_bottom_half,
 				   IRQF_ONESHOT, KBUILD_MODNAME, NULL);
 	if (ret) {
 		pr_err("request_threaded_irq failed: %d\n", ret);
 		goto err_dispose_mapping;
 	}
 
-	ret = irq_set_irqchip_state(virq, IRQCHIP_STATE_PENDING, true);
+	ret = irq_set_irqchip_state(gs_virq, IRQCHIP_STATE_PENDING, true);
 	if (ret) {
 		pr_err("failed to raise the simulated irq: %d\n", ret);
 		goto err_free_irq;
 	}
 
+	pr_info("loaded\n");
 	return 0;
 
 err_free_irq:
-	free_irq(virq, NULL);
+	free_irq(gs_virq, NULL);
 err_dispose_mapping:
-	irq_dispose_mapping(virq);
+	irq_dispose_mapping(gs_virq);
 err_remove_sim:
-	irq_domain_remove_sim(sim_domain);
+	irq_domain_remove_sim(gs_sim_domain);
 	return ret;
 }
 
-static void __exit threaded_irq_exit(void)
+static void __exit threaded_irq_module_exit(void)
 {
 	pr_info("exit: in_hardirq=%s in_softirq=%s in_task=%s\n", in_hardirq() ? "Y" : "N",
 		in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
-	free_irq(virq, NULL);
-	irq_dispose_mapping(virq);
-	irq_domain_remove_sim(sim_domain);
+	free_irq(gs_virq, NULL);
+	irq_dispose_mapping(gs_virq);
+	irq_domain_remove_sim(gs_sim_domain);
 	pr_info("unloaded\n");
 }
 
-module_init(threaded_irq_init);
-module_exit(threaded_irq_exit);
+module_init(threaded_irq_module_init);
+module_exit(threaded_irq_module_exit);
 
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("Threaded IRQ bottom half in a dedicated kthread");

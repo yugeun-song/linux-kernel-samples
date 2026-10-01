@@ -15,9 +15,9 @@
 #define SIM_IRQ_LINES 1
 #define SIM_IRQ_HWIRQ 0
 
-static struct irq_domain *sim_domain;
-static unsigned int virq;
-static struct tasklet_struct bottom_half;
+static struct irq_domain *gs_sim_domain;
+static unsigned int gs_virq;
+static struct tasklet_struct gs_bottom_half;
 
 static void tasklet_bottom_half(struct tasklet_struct *t)
 {
@@ -40,72 +40,72 @@ static irqreturn_t tasklet_top_half(int irq, void *dev_id)
 	pr_info("top half: in_hardirq=%s in_softirq=%s in_task=%s\n", in_hardirq() ? "Y" : "N",
 		in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
 	pr_info("scheduling the tasklet bottom half\n");
-	tasklet_schedule(&bottom_half);
+	tasklet_schedule(&gs_bottom_half);
 	return IRQ_HANDLED;
 }
 
-static int __init tasklet_sample_init(void)
+static int __init tasklet_module_init(void)
 {
 	int ret;
 
 	pr_info("init: in_hardirq=%s in_softirq=%s in_task=%s\n", in_hardirq() ? "Y" : "N",
 		in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
 
-	tasklet_setup(&bottom_half, tasklet_bottom_half);
+	tasklet_setup(&gs_bottom_half, tasklet_bottom_half);
 
-	sim_domain = irq_domain_create_sim(NULL, SIM_IRQ_LINES);
-	if (IS_ERR(sim_domain)) {
-		ret = PTR_ERR(sim_domain);
+	gs_sim_domain = irq_domain_create_sim(NULL, SIM_IRQ_LINES);
+	if (IS_ERR(gs_sim_domain)) {
+		ret = PTR_ERR(gs_sim_domain);
 		pr_err("irq_domain_create_sim failed: %d\n", ret);
 		goto err_kill_tasklet;
 	}
 
-	virq = irq_create_mapping(sim_domain, SIM_IRQ_HWIRQ);
-	if (!virq) {
+	gs_virq = irq_create_mapping(gs_sim_domain, SIM_IRQ_HWIRQ);
+	if (!gs_virq) {
 		pr_err("irq_create_mapping failed\n");
 		ret = -ENODEV;
 		goto err_remove_sim;
 	}
 
-	ret = request_irq(virq, tasklet_top_half, 0, KBUILD_MODNAME, NULL);
+	ret = request_irq(gs_virq, tasklet_top_half, 0, KBUILD_MODNAME, NULL);
 	if (ret) {
 		pr_err("request_irq failed: %d\n", ret);
 		goto err_dispose_mapping;
 	}
 
-	ret = irq_set_irqchip_state(virq, IRQCHIP_STATE_PENDING, true);
+	ret = irq_set_irqchip_state(gs_virq, IRQCHIP_STATE_PENDING, true);
 	if (ret) {
 		pr_err("failed to raise the simulated irq: %d\n", ret);
 		goto err_free_irq;
 	}
 
+	pr_info("loaded\n");
 	return 0;
 
 err_free_irq:
-	free_irq(virq, NULL);
+	free_irq(gs_virq, NULL);
 err_dispose_mapping:
-	irq_dispose_mapping(virq);
+	irq_dispose_mapping(gs_virq);
 err_remove_sim:
-	irq_domain_remove_sim(sim_domain);
+	irq_domain_remove_sim(gs_sim_domain);
 err_kill_tasklet:
-	tasklet_kill(&bottom_half);
+	tasklet_kill(&gs_bottom_half);
 	return ret;
 }
 
-static void __exit tasklet_sample_exit(void)
+static void __exit tasklet_module_exit(void)
 {
 	pr_info("exit: in_hardirq=%s in_softirq=%s in_task=%s\n", in_hardirq() ? "Y" : "N",
 		in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
-
-	free_irq(virq, NULL);
-	irq_dispose_mapping(virq);
-	irq_domain_remove_sim(sim_domain);
-	tasklet_kill(&bottom_half);
+	free_irq(gs_virq, NULL);
+	irq_dispose_mapping(gs_virq);
+	irq_domain_remove_sim(gs_sim_domain);
+	tasklet_kill(&gs_bottom_half);
 	pr_info("unloaded\n");
 }
 
-module_init(tasklet_sample_init);
-module_exit(tasklet_sample_exit);
+module_init(tasklet_module_init);
+module_exit(tasklet_module_exit);
 
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("Tasklet bottom half in softirq context");

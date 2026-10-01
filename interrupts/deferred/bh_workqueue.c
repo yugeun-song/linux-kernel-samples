@@ -11,14 +11,20 @@
 #include <linux/preempt.h>
 #include <linux/printk.h>
 #include <linux/slab.h>
+#include <linux/version.h>
 #include <linux/workqueue.h>
 
 #define SIM_IRQ_LINES 1
 #define SIM_IRQ_HWIRQ 0
 
-static struct irq_domain *sim_domain;
-static struct workqueue_struct *bh_wq;
-static unsigned int virq;
+/* 7.2+ warns when a workqueue names neither WQ_PERCPU (6.17+) nor WQ_UNBOUND. */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 17, 0)
+#define WQ_PERCPU 0
+#endif
+
+static struct irq_domain *gs_sim_domain;
+static struct workqueue_struct *gs_bh_wq;
+static unsigned int gs_virq;
 
 static void bh_workqueue_bottom_half(struct work_struct *work)
 {
@@ -36,82 +42,83 @@ static void bh_workqueue_bottom_half(struct work_struct *work)
 	pr_info("GFP_ATOMIC kmalloc ok; a BH work runs in softirq, so sleeping is still forbidden\n");
 }
 
-static DECLARE_WORK(bottom_half, bh_workqueue_bottom_half);
+static DECLARE_WORK(gs_bottom_half, bh_workqueue_bottom_half);
 
 static irqreturn_t bh_workqueue_top_half(int irq, void *dev_id)
 {
 	pr_info("top half: in_hardirq=%s in_softirq=%s in_task=%s\n", in_hardirq() ? "Y" : "N",
 		in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
 	pr_info("queueing the BH-workqueue bottom half\n");
-	queue_work(bh_wq, &bottom_half);
+	queue_work(gs_bh_wq, &gs_bottom_half);
 	return IRQ_HANDLED;
 }
 
-static int __init bh_workqueue_init(void)
+static int __init bh_workqueue_module_init(void)
 {
 	int ret;
 
 	pr_info("init: in_hardirq=%s in_softirq=%s in_task=%s\n", in_hardirq() ? "Y" : "N",
 		in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
 
-	bh_wq = alloc_workqueue(KBUILD_MODNAME, WQ_BH, 0);
-	if (!bh_wq) {
-		pr_err("alloc_workqueue(WQ_BH) failed\n");
+	gs_bh_wq = alloc_workqueue(KBUILD_MODNAME, WQ_BH | WQ_PERCPU, 0);
+	if (!gs_bh_wq) {
+		pr_err("alloc_workqueue failed\n");
 		return -ENOMEM;
 	}
 
-	sim_domain = irq_domain_create_sim(NULL, SIM_IRQ_LINES);
-	if (IS_ERR(sim_domain)) {
-		ret = PTR_ERR(sim_domain);
+	gs_sim_domain = irq_domain_create_sim(NULL, SIM_IRQ_LINES);
+	if (IS_ERR(gs_sim_domain)) {
+		ret = PTR_ERR(gs_sim_domain);
 		pr_err("irq_domain_create_sim failed: %d\n", ret);
 		goto err_destroy_wq;
 	}
 
-	virq = irq_create_mapping(sim_domain, SIM_IRQ_HWIRQ);
-	if (!virq) {
+	gs_virq = irq_create_mapping(gs_sim_domain, SIM_IRQ_HWIRQ);
+	if (!gs_virq) {
 		pr_err("irq_create_mapping failed\n");
 		ret = -ENODEV;
 		goto err_remove_sim;
 	}
 
-	ret = request_irq(virq, bh_workqueue_top_half, 0, KBUILD_MODNAME, NULL);
+	ret = request_irq(gs_virq, bh_workqueue_top_half, 0, KBUILD_MODNAME, NULL);
 	if (ret) {
 		pr_err("request_irq failed: %d\n", ret);
 		goto err_dispose_mapping;
 	}
 
-	ret = irq_set_irqchip_state(virq, IRQCHIP_STATE_PENDING, true);
+	ret = irq_set_irqchip_state(gs_virq, IRQCHIP_STATE_PENDING, true);
 	if (ret) {
 		pr_err("failed to raise the simulated irq: %d\n", ret);
 		goto err_free_irq;
 	}
 
+	pr_info("loaded\n");
 	return 0;
 
 err_free_irq:
-	free_irq(virq, NULL);
+	free_irq(gs_virq, NULL);
 err_dispose_mapping:
-	irq_dispose_mapping(virq);
+	irq_dispose_mapping(gs_virq);
 err_remove_sim:
-	irq_domain_remove_sim(sim_domain);
+	irq_domain_remove_sim(gs_sim_domain);
 err_destroy_wq:
-	destroy_workqueue(bh_wq);
+	destroy_workqueue(gs_bh_wq);
 	return ret;
 }
 
-static void __exit bh_workqueue_exit(void)
+static void __exit bh_workqueue_module_exit(void)
 {
 	pr_info("exit: in_hardirq=%s in_softirq=%s in_task=%s\n", in_hardirq() ? "Y" : "N",
 		in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
-	free_irq(virq, NULL);
-	irq_dispose_mapping(virq);
-	irq_domain_remove_sim(sim_domain);
-	destroy_workqueue(bh_wq);
+	free_irq(gs_virq, NULL);
+	irq_dispose_mapping(gs_virq);
+	irq_domain_remove_sim(gs_sim_domain);
+	destroy_workqueue(gs_bh_wq);
 	pr_info("unloaded\n");
 }
 
-module_init(bh_workqueue_init);
-module_exit(bh_workqueue_exit);
+module_init(bh_workqueue_module_init);
+module_exit(bh_workqueue_module_exit);
 
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("BH workqueue bottom half in softirq context");

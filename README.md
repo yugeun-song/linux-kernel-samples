@@ -23,16 +23,16 @@ kernel log, so `dmesg` after `insmod` is the lesson.
 | `data_structure/container_of` | the outer struct recovered by `container_of()` from members before, after and inside an embedded struct |
 | `data_structure/list` | a `list_head` list: build, walk, look up, update, delete |
 | `smp/percpu/percpu_parallel` | per-CPU counters, one hotplug-safe smpboot kthread per CPU |
-| `interrupts/hardirq/hardirq` | a top-half handler on a simulated irq |
-| `interrupts/hardirq/irq_none` | returning `IRQ_NONE`, how a shared-irq handler says "not mine" |
+| `interrupts/hardirq/hardirq` | a top-half handler on a simulated IRQ |
+| `interrupts/hardirq/irq_none` | returning `IRQ_NONE`, how a shared-IRQ handler says "not mine" |
 | `interrupts/hardirq/disable_irq` | five raises held back for 5 s while the IRQ is disabled, merged into one delivery by `enable_irq` |
 | `interrupts/deferred/tasklet` | a bottom half in softirq context (no sleeping, `GFP_ATOMIC` only) |
 | `interrupts/deferred/bh_workqueue` | the BH workqueue (6.9+) that replaces tasklets, also in softirq context |
 | `interrupts/deferred/workqueue_sample` | a bottom half in process context (sleeping and `GFP_KERNEL` allowed) |
-| `interrupts/deferred/threaded_irq` | a bottom half in a dedicated irq kthread, also in process context |
+| `interrupts/deferred/threaded_irq` | a bottom half in a dedicated IRQ kthread, also in process context |
 | `interrupts/deferred/timer_softirq` | a `timer_list` callback in `TIMER_SOFTIRQ` |
 | `interrupts/deferred/net_rx_softirq` | TCP receive running in `NET_RX_SOFTIRQ`, seen from a netfilter hook |
-| `interrupts/concurrency/interrupt_competition` | every CPU raising one shared irq, a counter kept gap-free by `spin_lock_irqsave` |
+| `interrupts/concurrency/interrupt_competition` | every CPU raising one shared IRQ, a counter kept gap-free by `spin_lock_irqsave` |
 | `interrupts/danger/sleep_in_{hardirq,softirq}_danger` | the illegal case: sleeping in atomic context |
 
 ## Building
@@ -96,7 +96,7 @@ sudo rmmod container_of
 ```
 
 At load, the data structure samples log their walk-through, and the
-simulated-irq samples (`CONFIG_IRQ_SIM`) raise their irq and log the flow,
+simulated-IRQ samples (`CONFIG_IRQ_SIM`) raise their IRQ and log the flow,
 except the danger ones, which wait to be fired by hand. `percpu_parallel` and
 `timer_softirq` log every second until `rmmod`. `net_rx_softirq` logs every
 16th inbound IPv4 TCP packet and never creates traffic itself: repeat
@@ -117,7 +117,7 @@ sudo rmmod sleep_in_hardirq_danger
 
 Background for reading the logs:
 
-- The four simulated-irq samples in `interrupts/deferred/` share the same
+- The four simulated-IRQ samples in `interrupts/deferred/` share the same
   hardirq top half and differ only in the bottom-half mechanism. Tasklets are
   deprecated; the tasklet samples stay for the classic form.
 - A module cannot register a softirq vector of its own: `open_softirq` is not
@@ -132,7 +132,7 @@ Background for reading the logs:
   domain, and genirq refuses re-entry while the handler is in progress. The
   handler thus runs one at a time, each softirq reports the hardirq it picked
   up, and every raise, hardirq and softirq line names its CPU.
-- The simulated-irq samples act only on their own simulated line, never on a
+- The simulated-IRQ samples act only on their own simulated line, never on a
   real system interrupt.
 
 ### In a VM
@@ -214,19 +214,19 @@ The minimal shape:
 #include <linux/module.h>
 #include <linux/printk.h>
 
-static int __init demo_init(void)
+static int __init demo_module_init(void)
 {
 	pr_info("loaded\n");
 	return 0;
 }
 
-static void __exit demo_exit(void)
+static void __exit demo_module_exit(void)
 {
 	pr_info("unloaded\n");
 }
 
-module_init(demo_init);
-module_exit(demo_exit);
+module_init(demo_module_init);
+module_exit(demo_module_exit);
 
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("Minimal module skeleton");
@@ -237,9 +237,7 @@ MODULE_VERSION("1.0");
   returns 0, or a negative errno to abort loading. `__init` code is discarded
   after loading, and `__exit` code is dropped when the module is built in.
 - `pr_fmt` prefixes every `pr_*()` line with the module name. The kernel log is
-  the only output a module has. As in mainline, log lines start lowercase unless
-  they open with an identifier or acronym, and `MODULE_DESCRIPTION` is a
-  sentence-case noun phrase without a final period.
+  the only output a module has.
 - The SPDX line is the file's copyright license, 0BSD, and travels with a copied
   file. `MODULE_LICENSE("Dual BSD/GPL")` tells the kernel the same license: a
   BSD variant, named by the SPDX line, or GPL. The string is on the kernel's
@@ -278,14 +276,11 @@ is included for every sample in its directory, so it branches on
 
 ## Coding style
 
-Strict kernel style (hard tabs, 8 columns; see `.clang-format` and
-`.editorconfig`) with a 100-column limit, checkpatch's default, instead of the
-kernel's preferred 80. User-visible strings are never split, even past the
-limit, as kernel style requires; verbatim log captures in comments stay
-unwrapped too. clangd needs the exact kbuild flags: `make compdb` builds
-`compile_commands.json` from the `.cmd` files in each `.build-<mod>/`, points
-every entry at the real source, and drops the GCC-only flags clang rejects.
-Build a sample before opening it in an editor.
+Kernel style with a few deliberate differences, listed in
+[`CODING_STYLE.md`](CODING_STYLE.md). clangd needs the exact kbuild flags:
+`make compdb` builds `compile_commands.json` from the `.cmd` files in each
+`.build-<mod>/`, points every entry at the real source, and drops the GCC-only
+flags clang rejects. Build a sample before opening it in an editor.
 
 ## License
 

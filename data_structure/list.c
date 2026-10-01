@@ -37,26 +37,19 @@ struct user_info {
 	char username[MAX_USERNAME_LENGTH];
 };
 
-/* clang-format off */
-static const char *const food_names[N_FOOD_CODES] = {
-	[BANANA] = "banana",
-	[KIWI] = "kiwi",
-	[STRAWBERRY] = "strawberry",
-	[BREAD] = "bread",
-	[MILK] = "milk",
-	[HAM] = "ham",
+static const char *const gs_food_names[N_FOOD_CODES] = {
+	[BANANA] = "banana", [KIWI] = "kiwi", [STRAWBERRY] = "strawberry",
+	[BREAD] = "bread",   [MILK] = "milk", [HAM] = "ham",
 };
 
-/* clang-format on */
-
-static LIST_HEAD(g_user_info_list);
+static LIST_HEAD(gs_user_info_list);
 
 static inline const char *get_food_name(enum food_code food)
 {
 	if ((unsigned int)food >= N_FOOD_CODES)
 		return "unknown";
 
-	return food_names[food];
+	return gs_food_names[food];
 }
 
 static inline enum food_code pick_random_food(void)
@@ -72,7 +65,7 @@ static struct user_info *get_user_info(const char *username)
 	if (!username)
 		return NULL;
 
-	list_for_each(pos, &g_user_info_list) {
+	list_for_each(pos, &gs_user_info_list) {
 		user = container_of(pos, struct user_info, list_node);
 
 		if (!strcmp(user->username, username))
@@ -100,16 +93,16 @@ static void print_all_user_infos(void)
 {
 	struct user_info *user;
 
-	pr_info("%zu user infos in the list\n", list_count_nodes(&g_user_info_list));
+	pr_info("%zu user infos in the list\n", list_count_nodes(&gs_user_info_list));
 
-	if (list_empty(&g_user_info_list))
+	if (list_empty(&gs_user_info_list))
 		return;
 
 	pr_info("first=%s last=%s\n",
-		list_first_entry(&g_user_info_list, struct user_info, list_node)->username,
-		list_last_entry(&g_user_info_list, struct user_info, list_node)->username);
+		list_first_entry(&gs_user_info_list, struct user_info, list_node)->username,
+		list_last_entry(&gs_user_info_list, struct user_info, list_node)->username);
 
-	list_for_each_entry(user, &g_user_info_list, list_node) {
+	list_for_each_entry(user, &gs_user_info_list, list_node) {
 		pr_info("username=%s age=%u\n", user->username, user->age);
 		print_shopping_cart(user);
 	}
@@ -134,13 +127,13 @@ static void free_all_user_infos(void)
 	struct user_info *user;
 	struct user_info *tmp;
 
-	list_for_each_entry_safe(user, tmp, &g_user_info_list, list_node) {
+	list_for_each_entry_safe(user, tmp, &gs_user_info_list, list_node) {
 		list_del(&user->list_node);
 		kfree(user);
 	}
 }
 
-static int __init user_info_init(void)
+static int __init list_module_init(void)
 {
 	static const char *const get_targets[] = { "username#2", "username#4", "nobody" };
 	static const char *const delete_targets[] = { "username#1", "username#1", "username#4",
@@ -150,13 +143,11 @@ static int __init user_info_init(void)
 	unsigned int j;
 	int ret;
 
-	pr_info("start linked list example code\n");
-
 	for (i = 0; i < N_USER_INFOS; i++) {
 		user = kzalloc(sizeof(*user), GFP_KERNEL);
 		if (!user) {
 			ret = -ENOMEM;
-			goto out_free;
+			goto err_free;
 		}
 
 		scnprintf(user->username, sizeof(user->username), "username#%u", i);
@@ -166,7 +157,7 @@ static int __init user_info_init(void)
 		for (j = 0; j < user->n_cart_items; j++)
 			user->shopping_cart[j] = pick_random_food();
 
-		list_add_tail(&user->list_node, &g_user_info_list);
+		list_add_tail(&user->list_node, &gs_user_info_list);
 	}
 
 	print_all_user_infos();
@@ -205,22 +196,23 @@ static int __init user_info_init(void)
 
 	print_all_user_infos();
 
+	pr_info("loaded\n");
 	return 0;
 
-out_free:
+err_free:
 	free_all_user_infos();
 
 	return ret;
 }
 
-static void __exit user_info_exit(void)
+static void __exit list_module_exit(void)
 {
 	free_all_user_infos();
-	pr_info("finished linked list example code\n");
+	pr_info("unloaded\n");
 }
 
-module_init(user_info_init);
-module_exit(user_info_exit);
+module_init(list_module_init);
+module_exit(list_module_exit);
 
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("Linked list on list_head with lookup, update and delete");
