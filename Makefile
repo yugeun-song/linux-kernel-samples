@@ -12,6 +12,10 @@ ifeq ($(origin KVER),command line)
 TARGET_SRC := command line
 else ifneq ($(KVER),$(HOST_KVER))
 TARGET_SRC := config.mk
+else ifeq ($(wildcard $(KDIR)/Makefile),)
+NEWEST_KVER := $(notdir $(patsubst %/build,%,$(lastword $(shell ls -d /lib/modules/*/build 2>/dev/null | sort -V))))
+KVER := $(or $(NEWEST_KVER),$(HOST_KVER))
+TARGET_SRC := newest installed; running $(HOST_KVER) has no build tree
 else
 TARGET_SRC := host default
 endif

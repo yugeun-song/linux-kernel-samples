@@ -63,8 +63,10 @@ generated on the first build. The signature is harmless without Secure Boot.
 When `sign-file`, or `openssl` for a first key, is missing, the module stays
 unsigned with a warning.
 
-The running kernel is the default target. Override it per invocation, or pin it
-with the same variables (`KVER := ...`) in a git-ignored `config.mk`:
+The running kernel is the default target, or the newest installed build tree
+when the running kernel's is gone (after an upgrade, before a reboot). Override
+it per invocation, or pin it with the same variables (`KVER := ...`) in a
+git-ignored `config.mk`:
 
 ```
 make <theme>/<sample> KVER=6.6.0-rpi KDIR=/path/to/rpi/kernel/build \
