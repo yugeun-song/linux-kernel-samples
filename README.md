@@ -25,7 +25,7 @@ kernel log, so `dmesg` after `insmod` is the lesson.
 | `smp/percpu/percpu_parallel` | per-CPU counters, one hotplug-safe smpboot kthread per CPU |
 | `interrupts/hardirq/hardirq` | a top-half handler on a simulated irq |
 | `interrupts/hardirq/irq_none` | returning `IRQ_NONE`, how a shared-irq handler says "not mine" |
-| `interrupts/hardirq/disable_irq` | a raise held back while the line is masked, then let through by `enable_irq` |
+| `interrupts/hardirq/disable_irq` | five raises held back for 5 s while the IRQ is disabled, merged into one delivery by `enable_irq` |
 | `interrupts/deferred/tasklet` | a bottom half in softirq context (no sleeping, `GFP_ATOMIC` only) |
 | `interrupts/deferred/bh_workqueue` | the BH workqueue (6.9+) that replaces tasklets, also in softirq context |
 | `interrupts/deferred/workqueue_sample` | a bottom half in process context (sleeping and `GFP_KERNEL` allowed) |
