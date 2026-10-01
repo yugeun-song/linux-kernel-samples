@@ -44,9 +44,9 @@ const member pointer: `container_of()` drops the const and compiles, while
 
 ## Building
 
-Prerequisites: headers for the target kernel (`linux-headers` on Arch,
-`linux-headers-$(uname -r)` on Debian/Ubuntu, `kernel-devel` on Fedora), a C
-toolchain, and root to load.
+Prerequisites: headers for a 6.12 or later target kernel (`linux-headers` on
+Arch, `linux-headers-$(uname -r)` on Debian/Ubuntu, `kernel-devel` on Fedora),
+a C toolchain, and root to load.
 
 ```
 make                           # build and sign every sample, then compdb, tags, cscope
@@ -280,7 +280,7 @@ is included for every sample in its directory, so it branches on
 | `SAMPLE_OBJS` | object list for a multi-file module (`a.o b.o`) |
 | `SAMPLE_REQUIRED_CONFIGS` | kernel configs that must be `=y`/`=m` (e.g. `CONFIG_KPROBES`) |
 | `SAMPLE_SUPPORTED_ARCH` | allowed arches, in kbuild ARCH names (e.g. `x86 arm64`) |
-| `SAMPLE_MIN_KVER` | minimum kernel version (e.g. `5.14`) |
+| `SAMPLE_MIN_KVER` | minimum kernel version, when a sample needs more than the 6.12 baseline (e.g. `6.15`) |
 | `SAMPLE_MAX_KVER` | maximum kernel version, for an API removed later (e.g. `6.7`) |
 
 ## Coding style

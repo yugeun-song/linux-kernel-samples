@@ -16,6 +16,7 @@ endif
 src := $(abspath $(dir $(SAMPLE)))
 src_base := $(notdir $(SAMPLE))
 
+SAMPLE_MIN_KVER := 6.12
 -include $(src)/sample.mk
 
 ifdef SAMPLE_MODULE
