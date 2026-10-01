@@ -5,4 +5,4 @@ samples := \
 	workqueue_sample \
 	threaded_irq \
 	timer_softirq \
-	tcp_softirq_log
+	net_rx_softirq

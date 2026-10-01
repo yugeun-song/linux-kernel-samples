@@ -31,7 +31,7 @@ kernel log, so `dmesg` after `insmod` is the lesson.
 | `interrupts/deferred/workqueue_sample` | a bottom half in process context (sleeping and `GFP_KERNEL` allowed) |
 | `interrupts/deferred/threaded_irq` | a bottom half in a dedicated irq kthread, also in process context |
 | `interrupts/deferred/timer_softirq` | a `timer_list` callback in `TIMER_SOFTIRQ` |
-| `interrupts/deferred/tcp_softirq_log` | TCP receive running in `NET_RX_SOFTIRQ`, seen from a netfilter hook |
+| `interrupts/deferred/net_rx_softirq` | TCP receive running in `NET_RX_SOFTIRQ`, seen from a netfilter hook |
 | `interrupts/concurrency/interrupt_competition` | every CPU raising one shared irq, a counter kept gap-free by `spin_lock_irqsave` |
 | `interrupts/danger/sleep_in_{hardirq,softirq}_danger` | the illegal case: sleeping in atomic context |
 
@@ -98,7 +98,7 @@ sudo rmmod container_of
 At load, the data structure samples log their walk-through, and the
 simulated-irq samples (`CONFIG_IRQ_SIM`) raise their irq and log the flow,
 except the danger ones, which wait to be fired by hand. `percpu_parallel` and
-`timer_softirq` log every second until `rmmod`. `tcp_softirq_log` logs every
+`timer_softirq` log every second until `rmmod`. `net_rx_softirq` logs every
 16th inbound IPv4 TCP packet and never creates traffic itself: repeat
 `curl http://127.0.0.1/` (`ping` is ICMP and does not count).
 
@@ -124,7 +124,7 @@ Background for reading the logs:
   exported, and the vector table is fixed at compile time. So `timer_softirq`
   owns only a bottom half, and its top half is the kernel's own timer tick,
   present on every machine.
-- `tcp_softirq_log` proves `NET_RX_SOFTIRQ` with its `in_serving_softirq=Y`
+- `net_rx_softirq` proves `NET_RX_SOFTIRQ` with its `in_serving_softirq=Y`
   field. `in_softirq()` alone is `softirq_count()`, which is also nonzero under
   `local_bh_disable()`.
 - In `interrupt_competition`, raises that land together merge or drop rather
