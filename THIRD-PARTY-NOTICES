@@ -1,0 +1,9 @@
+Third-party notices
+
+The file below comes from another project. It stays under that project's
+license, not under LICENSE.
+
+.clang-format
+    Derived from the Linux kernel's .clang-format
+    (https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git).
+    GNU General Public License v2.0, see LICENSES/GPL-2.0.txt.
