@@ -7,6 +7,9 @@ key=$2
 cert=$3
 ko=$4
 
+exec 9<"$0"
+flock 9
+
 if [ ! -x "$sign_file" ]; then
 	echo "sign-module: $sign_file not found -- leaving $(basename "$ko") UNSIGNED" >&2
 	exit 0
