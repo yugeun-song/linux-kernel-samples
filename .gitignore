@@ -4,6 +4,7 @@
 *.o.*
 *.ko
 *.ko.unsigned
+*.ko.debug
 *.mod
 *.mod.c
 *.mod.o

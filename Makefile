@@ -6,6 +6,7 @@ ARCH          ?=
 CROSS_COMPILE ?=
 LLVM          ?=
 VMLINUX       ?=
+PROFILE       ?= debug
 NPROC         ?= $(shell nproc)
 KALIAS_DIRS   ?= /usr/src
 BASELINE      := 6.12
@@ -14,6 +15,9 @@ BASELINE      := 6.12
 
 ifneq ($(filter-out 0 1,$(VMLINUX)),)
 $(error VMLINUX takes 0 or 1, not '$(VMLINUX)')
+endif
+ifneq ($(words $(filter debug release,$(PROFILE))) $(words $(PROFILE)),1 1)
+$(error PROFILE takes debug or release, not '$(PROFILE)')
 endif
 
 ifeq ($(filter -j%,$(MAKEFLAGS)),)
@@ -124,8 +128,8 @@ SAMPLES += $$(addprefix $(1)/,$$(samples))
 endef
 $(foreach d,$(SAMPLE_DIRS),$(eval $(call import_manifest,$(d))))
 
-PASS := KDIR='$(KBUILD_DIR)' $(KBUILD_TC) SIGN='$(SIGN)' KVER_BASELINE='$(BASELINE)' \
-	KSRCARCH='$(call kinfo,srcarch)' $(MODPOST)
+PASS := KDIR='$(KBUILD_DIR)' $(KBUILD_TC) SIGN='$(SIGN)' PROFILE='$(PROFILE)' \
+	KVER_BASELINE='$(BASELINE)' KSRCARCH='$(call kinfo,srcarch)' $(MODPOST)
 
 SUBMAKE = $(MAKE) -f $(DRIVER) $(PASS)
 COMPDB  = python3 scripts/compdb.py --kdir '$(KBUILD_DIR)' --link-dirs '$(KALIAS_DIRS)' \
@@ -140,8 +144,9 @@ compdb: $(SAMPLES)
 	$(COMPDB)
 
 target: | $(KPREP)
-	@printf '=> target: KVER=%s ARCH=%s (%s)\n' "$$(cat '$(KBUILD_DIR)/include/config/kernel.release')" \
-		'$(ARCH)$(TOOLCHAIN)' '$(TARGET_SRC)'
+	@printf '=> target: KVER=%s ARCH=%s PROFILE=%s (%s)\n' \
+		"$$(cat '$(KBUILD_DIR)/include/config/kernel.release')" '$(ARCH)$(TOOLCHAIN)' \
+		'$(PROFILE)' '$(TARGET_SRC)'
 
 $(SAMPLES): | target $(KPREP)
 	$(SUBMAKE) build SAMPLE=$@
@@ -170,7 +175,7 @@ endif
 
 clean:
 	find . -path ./.git -prune -o -path ./.kbuild -prune -o -name '.build-*' -type d -prune \
-		-exec rm -rf {} + -o -name '*.ko' -type f -exec rm -f {} +
+		-exec rm -rf {} + -o \( -name '*.ko' -o -name '*.ko.debug' \) -type f -exec rm -f {} +
 	rm -rf .kbuild compile_commands.json compile_commands.json.tmp cscope.files \
 		cscope.files.tmp tags cscope.out cscope.in.out cscope.po.out .cache/clangd
 

@@ -44,10 +44,11 @@ a C toolchain, python3, and root to load.
 ```
 make                           # build and sign every sample, compdb, tags, cscope; one job per CPU
 make NPROC=4                   # the same with 4 jobs (make -j4 works too)
+make PROFILE=release           # the same with release flags, see below
 make KDIR=/path/to/linux       # the same against another kernel tree, see below
 make <theme>/<sample>          # one sample, e.g. make data_structure/container_of
 make <theme>/<sample> SIGN=0   # the same, unsigned
-make clean                     # remove modules, build dirs, compdb, clangd cache, tags, cscope
+make clean                     # remove modules, .ko.debug, build dirs, compdb, clangd cache, tags, cscope
 make list                      # list the registered samples
 make compdb                    # compile_commands.json for clangd
 make tags                      # ctags of the repo and the kernel headers it uses (also: make cscope)
@@ -62,6 +63,27 @@ stay unsigned unless `SIGN=1`.
 
 The running kernel is the default target, or the newest installed build tree
 when the running kernel's is gone (after an upgrade, before a reboot).
+
+### Debug and release builds
+
+`PROFILE` sets the flags the samples build with: `debug` by default, or
+`release`. The kernel and its configuration stay untouched. Both profiles keep
+what the kernel provides for tracing: ftrace and kprobes, tracepoints, module
+BTF, and dynamic debug (`-DDYNAMIC_DEBUG_MODULE` when the kernel has only
+`CONFIG_DYNAMIC_DEBUG_CORE`). The sanitizers the kernel enables (KASAN, KMSAN,
+UBSAN, KCSAN) instrument both, and the optimization level stays the kernel's.
+
+| | `debug` | `release` |
+|---|---|---|
+| `pr_debug()`, `dev_dbg()` | on (`-DDEBUG`) | off, switchable through dynamic debug |
+| DWARF | `-g3` with macros, also over a kernel built with reduced or no debug info | moved to `<mod>.ko.debug`; the `.ko` keeps its symbols and BTF, loses its debug sections (`--strip-debug`, as `INSTALL_MOD_STRIP=1`) and names the file in `.gnu_debuglink` |
+| inlining, tail calls | `-fno-inline-functions-called-once` and `-fno-optimize-sibling-calls`: more functions for ftrace and kprobes, every frame in a stack trace | the kernel's |
+| stack checks | `-fstack-protector-all` where the kernel has a stack protector; a pattern instead of zeroes where it initializes the stack | the kernel's |
+| coverage | `GCOV_PROFILE` and `KCOV_INSTRUMENT`, on kernels with gcov or kcov | the kernel's |
+| warnings | `W=1` | the kernel's |
+
+Release modules are signed after the strip. Pin a profile in `config.mk` with
+`PROFILE := release`.
 
 ### Other kernels and architectures
 
@@ -130,8 +152,8 @@ kbuild, and the repo ships sources, not prebuilt modules.
 | stage | does |
 |-------|------|
 | `Makefile` | reads `SAMPLE_DIRS` and each directory's `manifest.mk`, applies `config.mk`, has `scripts/ktree.py` check the tree and pick `ARCH` and the toolchain, and builds vmlinux in `.kbuild/` on `VMLINUX=1` |
-| `scripts/kmod.mk` | includes `sample.mk`, runs the preflight, clears `.build-<mod>/` when the kernel changed, symlinks the sources into it, writes its `Kbuild` and checks the target of the built `.ko` |
-| `make -C $(KDIR) M=<dir>/.build-<mod> modules` | compiles and links `<mod>.ko`, which `kmod.mk` copies next to the source and signs |
+| `scripts/kmod.mk` | includes `sample.mk`, runs the preflight, clears `.build-<mod>/` when the kernel changed, symlinks the sources into it, writes its `Kbuild` with the `PROFILE` flags of `scripts/profile.mk` and checks the target of the built `.ko` |
+| `make -C $(KDIR) M=<dir>/.build-<mod> modules` | compiles and links `<mod>.ko`, which `kmod.mk` copies next to the source, splits for `release` and signs |
 
 The preflight stops with `$(error)` when the source or the kernel build tree is
 missing, or when the arch, a required `CONFIG` or the kernel version does not
@@ -232,8 +254,9 @@ ls -a /sys/module/hardirq/sections/          # dotfiles; only non-empty sections
 ```
 
 Through a kernel gdb stub (KGDB, or QEMU's `-s`), `add-symbol-file hardirq.ko
-0x<.text> -s .bss 0x<.bss>` gives source-level breakpoints, because the `.ko`
-carries `CONFIG_DEBUG_INFO` DWARF. The same DWARF decodes an oops frame
+0x<.text> -s .bss 0x<.bss>` gives source-level breakpoints from the DWARF in
+the `.ko`, or in the `.ko.debug` that gdb finds through the debuglink of a
+release module. The same DWARF decodes an oops frame
 `func+0x<off> [hardirq]` offline: `gdb hardirq.ko -ex 'list *(func+0x<off>)'`.
 The base is re-randomized on every load, so re-read it each time.
 

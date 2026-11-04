@@ -5,11 +5,13 @@ KDIR          ?= /lib/modules/$(KVER)/build
 ARCH          ?=
 CROSS_COMPILE ?=
 LLVM          ?=
+PROFILE       ?= debug
 SIGN          ?= 1
 SIGN_KEY      ?= $(CURDIR)/MOK.priv
 SIGN_CERT     ?= $(CURDIR)/MOK.der
 SIGN_SCRIPT   := $(dir $(firstword $(MAKEFILE_LIST)))sign-module.sh
 KTREE_SCRIPT  := $(dir $(firstword $(MAKEFILE_LIST)))ktree.py
+PROFILE_MK    := $(abspath $(dir $(firstword $(MAKEFILE_LIST)))profile.mk)
 
 ifeq ($(SAMPLE),)
 $(error SAMPLE is not set)
@@ -40,7 +42,11 @@ endif
 ifneq ($(LLVM),)
 KBUILD_ARGS += LLVM=$(LLVM)
 endif
+ifeq ($(PROFILE),debug)
+KBUILD_ARGS += W=1
+endif
 ktree := $(realpath $(KDIR))
+objcopy := $(if $(LLVM),$(filter %/,$(LLVM))llvm-objcopy$(filter -%,$(LLVM)),$(CROSS_COMPILE)objcopy)
 
 ifneq ($(filter build,$(MAKECMDGOALS)),)
 
@@ -94,16 +100,23 @@ endif
 .PHONY: build
 
 build:
-	@[ "$$(cat $(bdir)/.kdir 2>/dev/null)" = '$(ktree)' ] || rm -rf $(bdir) $(src)/$(mod).ko
+	@[ "$$(cat $(bdir)/.kdir 2>/dev/null)" = '$(ktree)' ] || \
+		rm -rf $(bdir) $(src)/$(mod).ko $(src)/$(mod).ko.debug
 	@mkdir -p $(bdir)
 	@echo '$(ktree)' > $(bdir)/.kdir
 	@$(if $(KBUILD_EXTRA_SYMBOLS),rm -f $(bdir)/Module.symvers,:)
 	@for c in $(srcs); do ln -sf $(src)/$$c $(bdir)/$$c; done
-	@echo 'obj-m := $(mod).o' > $(bdir)/Kbuild
+	@printf '%s\n' 'PROFILE := $(PROFILE)' 'include $(PROFILE_MK)' 'obj-m := $(mod).o' > $(bdir)/Kbuild
 	@$(if $(mod_objs),echo '$(mod)-objs := $(mod_objs)' >> $(bdir)/Kbuild,:)
 	$(MAKE) -C $(KDIR) $(KBUILD_ARGS) modules
 	@python3 '$(KTREE_SCRIPT)' elf '$(KDIR)' '$(bdir)/$(mod).ko'
 	@cp $(bdir)/$(mod).ko $(src)/$(mod).ko
+ifeq ($(PROFILE),release)
+	@$(objcopy) --only-keep-debug $(src)/$(mod).ko $(src)/$(mod).ko.debug
+	@$(objcopy) --strip-debug --add-gnu-debuglink=$(src)/$(mod).ko.debug $(src)/$(mod).ko
+else
+	@rm -f $(src)/$(mod).ko.debug
+endif
 ifeq ($(SIGN),1)
 	@sh '$(SIGN_SCRIPT)' '$(KDIR)/scripts/sign-file' '$(SIGN_KEY)' '$(SIGN_CERT)' \
 		'$(src)/$(mod).ko'
