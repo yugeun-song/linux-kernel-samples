@@ -276,11 +276,21 @@ is included for every sample in its directory, so it branches on
 
 ## Coding style
 
-Kernel style with a few deliberate differences, listed in
-[`CODING_STYLE.md`](CODING_STYLE.md). clangd needs the exact kbuild flags:
-`make compdb` builds `compile_commands.json` from the `.cmd` files in each
-`.build-<mod>/`, points every entry at the real source, and drops the GCC-only
-flags clang rejects. Build a sample before opening it in an editor.
+[Linux kernel coding style][coding-style]: `.clang-format` is the kernel's own
+file and `.editorconfig` holds the rest. What those files cannot express:
+
+- `#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt` on the line after the SPDX tag.
+- Variable prefixes: `s_` for a static local, `g_` for a global, `gs_` for a
+  static global.
+- SPDX `0BSD` and `MODULE_LICENSE("Dual BSD/GPL")`, where the kernel uses
+  `GPL-2.0` and `MODULE_LICENSE("GPL")`.
+
+clangd needs the exact kbuild flags: `make compdb` builds
+`compile_commands.json` from the `.cmd` files in each `.build-<mod>/`, points
+every entry at the real source, and drops the GCC-only flags clang rejects.
+Build a sample before opening it in an editor.
+
+[coding-style]: https://www.kernel.org/doc/html/latest/process/coding-style.html
 
 ## License
 

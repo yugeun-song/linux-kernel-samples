@@ -6,24 +6,27 @@ charset = utf-8
 end_of_line = lf
 insert_final_newline = true
 trim_trailing_whitespace = true
-max_line_length = 100
 
 # Kernel C sources: strict kernel style — hard tabs, 8-column display width.
 [*.{c,h}]
 indent_style = tab
 indent_size = 8
 tab_width = 8
+max_line_length = 80
 
 # Kbuild and Makefiles require hard tabs by language definition.
 [{Kbuild,Makefile,makefile,GNUmakefile,*.mk}]
 indent_style = tab
 tab_width = 8
 
+[*.{json,py}]
+indent_style = space
+indent_size = 4
+
 # Docs and metadata.
-[*.{md,yml,yaml,json}]
+[*.{md,yml,yaml}]
 indent_style = space
 indent_size = 2
 
 [*.md]
 trim_trailing_whitespace = false
-max_line_length = off
