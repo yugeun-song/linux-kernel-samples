@@ -40,14 +40,16 @@ static int __init container_of_module_init(void)
 
 	from_value = container_of(value_ptr, struct some_struct, aligned_value);
 	from_tail = container_of(tail_ptr, struct some_struct, tail);
-	from_inner_value = container_of(inner_value_ptr, struct some_struct, nested_value.value);
+	from_inner_value = container_of(inner_value_ptr, struct some_struct,
+					nested_value.value);
 
 	pr_info("obj = %px, nested_value at offset %zu\n", &obj,
 		offsetof(struct some_struct, nested_value));
 
 	pr_info("[1] aligned_value, before nested_value\n");
 	pr_info("  value_ptr  = %px\n", value_ptr);
-	pr_info("  offsetof   = %zu\n", offsetof(struct some_struct, aligned_value));
+	pr_info("  offsetof   = %zu\n",
+		offsetof(struct some_struct, aligned_value));
 	pr_info("  from_value = %px\n", from_value);
 
 	pr_info("[2] tail, after nested_value\n");
@@ -57,13 +59,17 @@ static int __init container_of_module_init(void)
 
 	pr_info("[3] nested_value.value, inside nested_value\n");
 	pr_info("  inner_value_ptr  = %px\n", inner_value_ptr);
-	pr_info("  offsetof         = %zu\n", offsetof(struct some_struct, nested_value.value));
+	pr_info("  offsetof         = %zu\n",
+		offsetof(struct some_struct, nested_value.value));
 	pr_info("  from_inner_value = %px\n", from_inner_value);
 
 	pr_info("[check]\n");
-	pr_info("  from_value == &obj       : %s\n", from_value == &obj ? "yes" : "no");
-	pr_info("  from_tail == &obj        : %s\n", from_tail == &obj ? "yes" : "no");
-	pr_info("  from_inner_value == &obj : %s\n", from_inner_value == &obj ? "yes" : "no");
+	pr_info("  from_value == &obj       : %s\n",
+		from_value == &obj ? "yes" : "no");
+	pr_info("  from_tail == &obj        : %s\n",
+		from_tail == &obj ? "yes" : "no");
+	pr_info("  from_inner_value == &obj : %s\n",
+		from_inner_value == &obj ? "yes" : "no");
 
 	pr_info("loaded\n");
 	return 0;

@@ -18,7 +18,7 @@
 #define SIM_IRQ_LINES 1
 #define SIM_IRQ_HWIRQ 0
 
-/* 7.2+ warns when a workqueue names neither WQ_PERCPU (6.17+) nor WQ_UNBOUND. */
+/* 7.2+ warns when a workqueue names neither WQ_PERCPU (6.17+) nor WQ_UNBOUND */
 #if LINUX_VERSION_CODE < KERNEL_VERSION(6, 17, 0)
 #define WQ_PERCPU 0
 #endif
@@ -31,8 +31,9 @@ static void workqueue_sample_bottom_half(struct work_struct *work)
 {
 	void *buf;
 
-	pr_info("bottom half: in_hardirq=%s in_softirq=%s in_task=%s\n", in_hardirq() ? "Y" : "N",
-		in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
+	pr_info("bottom half: in_hardirq=%s in_softirq=%s in_task=%s\n",
+		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N",
+		in_task() ? "Y" : "N");
 
 	buf = kmalloc(64, GFP_KERNEL);
 	if (!buf) {
@@ -50,8 +51,9 @@ static DECLARE_WORK(gs_bottom_half, workqueue_sample_bottom_half);
 
 static irqreturn_t workqueue_sample_top_half(int irq, void *dev_id)
 {
-	pr_info("top half: in_hardirq=%s in_softirq=%s in_task=%s\n", in_hardirq() ? "Y" : "N",
-		in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
+	pr_info("top half: in_hardirq=%s in_softirq=%s in_task=%s\n",
+		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N",
+		in_task() ? "Y" : "N");
 	pr_info("queueing the process-context bottom half\n");
 	queue_work(gs_proc_wq, &gs_bottom_half);
 	return IRQ_HANDLED;
@@ -61,8 +63,9 @@ static int __init workqueue_sample_module_init(void)
 {
 	int ret;
 
-	pr_info("init: in_hardirq=%s in_softirq=%s in_task=%s\n", in_hardirq() ? "Y" : "N",
-		in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
+	pr_info("init: in_hardirq=%s in_softirq=%s in_task=%s\n",
+		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N",
+		in_task() ? "Y" : "N");
 
 	gs_proc_wq = alloc_workqueue(KBUILD_MODNAME, WQ_PERCPU, 0);
 	if (!gs_proc_wq) {
@@ -84,7 +87,8 @@ static int __init workqueue_sample_module_init(void)
 		goto err_remove_sim;
 	}
 
-	ret = request_irq(gs_virq, workqueue_sample_top_half, 0, KBUILD_MODNAME, NULL);
+	ret = request_irq(gs_virq, workqueue_sample_top_half, 0, KBUILD_MODNAME,
+			  NULL);
 	if (ret) {
 		pr_err("request_irq failed: %d\n", ret);
 		goto err_dispose_mapping;
@@ -112,8 +116,9 @@ err_destroy_wq:
 
 static void __exit workqueue_sample_module_exit(void)
 {
-	pr_info("exit: in_hardirq=%s in_softirq=%s in_task=%s\n", in_hardirq() ? "Y" : "N",
-		in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
+	pr_info("exit: in_hardirq=%s in_softirq=%s in_task=%s\n",
+		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N",
+		in_task() ? "Y" : "N");
 	free_irq(gs_virq, NULL);
 	irq_dispose_mapping(gs_virq);
 	irq_domain_remove_sim(gs_sim_domain);

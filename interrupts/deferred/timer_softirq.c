@@ -15,8 +15,9 @@ static unsigned long gs_tick_count;
 
 static void timer_softirq_bottom_half(struct timer_list *t)
 {
-	pr_info("bottom half: in_hardirq=%s in_softirq=%s in_task=%s\n", in_hardirq() ? "Y" : "N",
-		in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
+	pr_info("bottom half: in_hardirq=%s in_softirq=%s in_task=%s\n",
+		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N",
+		in_task() ? "Y" : "N");
 	gs_tick_count++;
 	pr_info("tick=%lu\n", gs_tick_count);
 	mod_timer(t, jiffies + msecs_to_jiffies(INTERVAL_MS));
@@ -24,8 +25,9 @@ static void timer_softirq_bottom_half(struct timer_list *t)
 
 static int __init timer_softirq_module_init(void)
 {
-	pr_info("init: in_hardirq=%s in_softirq=%s in_task=%s\n", in_hardirq() ? "Y" : "N",
-		in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
+	pr_info("init: in_hardirq=%s in_softirq=%s in_task=%s\n",
+		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N",
+		in_task() ? "Y" : "N");
 
 	timer_setup(&gs_tick_timer, timer_softirq_bottom_half, 0);
 	mod_timer(&gs_tick_timer, jiffies + msecs_to_jiffies(INTERVAL_MS));
@@ -36,8 +38,9 @@ static int __init timer_softirq_module_init(void)
 
 static void __exit timer_softirq_module_exit(void)
 {
-	pr_info("exit: in_hardirq=%s in_softirq=%s in_task=%s\n", in_hardirq() ? "Y" : "N",
-		in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
+	pr_info("exit: in_hardirq=%s in_softirq=%s in_task=%s\n",
+		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N",
+		in_task() ? "Y" : "N");
 	timer_shutdown_sync(&gs_tick_timer);
 	pr_info("unloaded; gs_tick_count=%lu\n", gs_tick_count);
 }

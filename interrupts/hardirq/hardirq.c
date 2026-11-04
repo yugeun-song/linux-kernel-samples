@@ -22,8 +22,9 @@ static irqreturn_t hardirq_top_half(int irq, void *dev_id)
 {
 	void *buf;
 
-	pr_info("top half: in_hardirq=%s in_softirq=%s in_task=%s\n", in_hardirq() ? "Y" : "N",
-		in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
+	pr_info("top half: in_hardirq=%s in_softirq=%s in_task=%s\n",
+		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N",
+		in_task() ? "Y" : "N");
 
 	buf = kmalloc(64, GFP_ATOMIC);
 	if (!buf) {
@@ -40,8 +41,9 @@ static int __init hardirq_module_init(void)
 {
 	int ret;
 
-	pr_info("init: in_hardirq=%s in_softirq=%s in_task=%s\n", in_hardirq() ? "Y" : "N",
-		in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
+	pr_info("init: in_hardirq=%s in_softirq=%s in_task=%s\n",
+		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N",
+		in_task() ? "Y" : "N");
 
 	gs_sim_domain = irq_domain_create_sim(NULL, SIM_IRQ_LINES);
 	if (IS_ERR(gs_sim_domain)) {
@@ -83,8 +85,9 @@ err_remove_sim:
 
 static void __exit hardirq_module_exit(void)
 {
-	pr_info("exit: in_hardirq=%s in_softirq=%s in_task=%s\n", in_hardirq() ? "Y" : "N",
-		in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
+	pr_info("exit: in_hardirq=%s in_softirq=%s in_task=%s\n",
+		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N",
+		in_task() ? "Y" : "N");
 	free_irq(gs_virq, NULL);
 	irq_dispose_mapping(gs_virq);
 	irq_domain_remove_sim(gs_sim_domain);

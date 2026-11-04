@@ -23,8 +23,9 @@ static void tasklet_bottom_half(struct tasklet_struct *t)
 {
 	void *buf;
 
-	pr_info("bottom half: in_hardirq=%s in_softirq=%s in_task=%s\n", in_hardirq() ? "Y" : "N",
-		in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
+	pr_info("bottom half: in_hardirq=%s in_softirq=%s in_task=%s\n",
+		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N",
+		in_task() ? "Y" : "N");
 
 	buf = kmalloc(64, GFP_ATOMIC);
 	if (!buf) {
@@ -37,8 +38,9 @@ static void tasklet_bottom_half(struct tasklet_struct *t)
 
 static irqreturn_t tasklet_top_half(int irq, void *dev_id)
 {
-	pr_info("top half: in_hardirq=%s in_softirq=%s in_task=%s\n", in_hardirq() ? "Y" : "N",
-		in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
+	pr_info("top half: in_hardirq=%s in_softirq=%s in_task=%s\n",
+		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N",
+		in_task() ? "Y" : "N");
 	pr_info("scheduling the tasklet bottom half\n");
 	tasklet_schedule(&gs_bottom_half);
 	return IRQ_HANDLED;
@@ -48,8 +50,9 @@ static int __init tasklet_module_init(void)
 {
 	int ret;
 
-	pr_info("init: in_hardirq=%s in_softirq=%s in_task=%s\n", in_hardirq() ? "Y" : "N",
-		in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
+	pr_info("init: in_hardirq=%s in_softirq=%s in_task=%s\n",
+		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N",
+		in_task() ? "Y" : "N");
 
 	tasklet_setup(&gs_bottom_half, tasklet_bottom_half);
 
@@ -95,8 +98,9 @@ err_kill_tasklet:
 
 static void __exit tasklet_module_exit(void)
 {
-	pr_info("exit: in_hardirq=%s in_softirq=%s in_task=%s\n", in_hardirq() ? "Y" : "N",
-		in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
+	pr_info("exit: in_hardirq=%s in_softirq=%s in_task=%s\n",
+		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N",
+		in_task() ? "Y" : "N");
 	free_irq(gs_virq, NULL);
 	irq_dispose_mapping(gs_virq);
 	irq_domain_remove_sim(gs_sim_domain);

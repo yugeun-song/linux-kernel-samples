@@ -16,13 +16,13 @@
  * way for module code to reach softirq context. The file name names the hazard
  * (sleeping in softirq), not the vehicle (the tasklet) used to get there.
  *
- * Verified on kernel 7.3.0-rc3 (virtme-ng config plus GPIO_SIM for irq_sim) with
- * danger_enabled=1. Captured live with ftrace function_graph
- * (set_graph_function=softirq_danger_bottom_half, max_graph_depth=30) and dmesg. The
- * captured trace is longer than what is shown here; every part trimmed from the
- * real output is marked with "..." (deep callee internals -- BUG and WARNING
- * reporting, the scheduler -- and the setup/teardown calls around the context
- * switch).
+ * Verified on kernel 7.3.0-rc3 (virtme-ng config plus GPIO_SIM for irq_sim)
+ * with danger_enabled=1. Captured live with ftrace function_graph
+ * (set_graph_function=softirq_danger_bottom_half, max_graph_depth=30) and
+ * dmesg. The captured trace is longer than what is shown here; every part
+ * trimmed from the real output is marked with "..." (deep callee internals --
+ * BUG and WARNING reporting, the scheduler -- and the setup/teardown calls
+ * around the context switch).
  *
  * ftrace function_graph:
  *
@@ -111,10 +111,10 @@
  *
  * => same as the hardirq case but reached via irq_exit_rcu -> handle_softirqs
  *    -> tasklet_action -> softirq_danger_bottom_half (softirq, preempt_count
- *    0x00000101): __schedule_bug warns, schedule() still context-switches on the
- *    hardirq stack (the __switch_to WARNING), and the CPU sleeps ~103 ms
- *    (@ 102921 us). On return the softirq core reports the preempt_count it lost
- *    ("huh, entered softirq 6 TASKLET ..."); the system is left unstable.
+ *    0x00000101): __schedule_bug warns, schedule() still context-switches on
+ *    the hardirq stack (the __switch_to WARNING), and the CPU sleeps ~103 ms
+ *    (@ 102921 us). On return the softirq core reports the preempt_count it
+ *    lost ("huh, entered softirq 6 TASKLET ..."); the system is left unstable.
  *
  * debugfs here is NOT part of the demo proper; it is the safety/test gate that
  * keeps the illegal path from ever firing by accident.
@@ -146,8 +146,9 @@ static struct tasklet_struct gs_danger_bh;
 
 static void softirq_danger_bottom_half(struct tasklet_struct *t)
 {
-	pr_info("bottom half: in_hardirq=%s in_softirq=%s in_task=%s\n", in_hardirq() ? "Y" : "N",
-		in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
+	pr_info("bottom half: in_hardirq=%s in_softirq=%s in_task=%s\n",
+		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N",
+		in_task() ? "Y" : "N");
 	if (!READ_ONCE(gs_debugfs_danger_enabled)) {
 		pr_warn("danger_enabled=0: skipping the illegal in-softirq sleep (safe mock, no-op)\n");
 		return;
@@ -165,13 +166,15 @@ static void softirq_danger_bottom_half(struct tasklet_struct *t)
 
 static irqreturn_t softirq_danger_top_half(int irq, void *dev_id)
 {
-	pr_info("top half: in_hardirq=%s in_softirq=%s in_task=%s\n", in_hardirq() ? "Y" : "N",
-		in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
+	pr_info("top half: in_hardirq=%s in_softirq=%s in_task=%s\n",
+		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N",
+		in_task() ? "Y" : "N");
 	tasklet_schedule(&gs_danger_bh);
 	return IRQ_HANDLED;
 }
 
-static ssize_t trigger_write(struct file *file, const char __user *ubuf, size_t len, loff_t *ppos)
+static ssize_t trigger_write(struct file *file, const char __user *ubuf,
+			     size_t len, loff_t *ppos)
 {
 	int ret;
 
@@ -193,8 +196,9 @@ static int __init sleep_in_softirq_danger_module_init(void)
 {
 	int ret;
 
-	pr_info("init: in_hardirq=%s in_softirq=%s in_task=%s\n", in_hardirq() ? "Y" : "N",
-		in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
+	pr_info("init: in_hardirq=%s in_softirq=%s in_task=%s\n",
+		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N",
+		in_task() ? "Y" : "N");
 
 	tasklet_setup(&gs_danger_bh, softirq_danger_bottom_half);
 
@@ -212,7 +216,8 @@ static int __init sleep_in_softirq_danger_module_init(void)
 		goto err_remove_sim;
 	}
 
-	ret = request_irq(gs_virq, softirq_danger_top_half, 0, KBUILD_MODNAME, NULL);
+	ret = request_irq(gs_virq, softirq_danger_top_half, 0, KBUILD_MODNAME,
+			  NULL);
 	if (ret) {
 		pr_err("request_irq failed: %d\n", ret);
 		goto err_dispose_mapping;
@@ -226,11 +231,14 @@ static int __init sleep_in_softirq_danger_module_init(void)
 	gs_debug_dir = debugfs_create_dir(KBUILD_MODNAME, NULL);
 	if (IS_ERR(gs_debug_dir)) {
 		ret = PTR_ERR(gs_debug_dir);
-		pr_err("debugfs unavailable (%d); cannot create danger controls\n", ret);
+		pr_err("debugfs unavailable (%d); cannot create danger controls\n",
+		       ret);
 		goto err_free_irq;
 	}
-	debugfs_create_bool("danger_enabled", 0600, gs_debug_dir, &gs_debugfs_danger_enabled);
-	debugfs_create_file("trigger", 0200, gs_debug_dir, NULL, &gs_trigger_fops);
+	debugfs_create_bool("danger_enabled", 0600, gs_debug_dir,
+			    &gs_debugfs_danger_enabled);
+	debugfs_create_file("trigger", 0200, gs_debug_dir, NULL,
+			    &gs_trigger_fops);
 
 	pr_info("loaded; set .../%s/danger_enabled to 1 then write .../trigger for the illegal path; trigger alone is a safe mock\n",
 		KBUILD_MODNAME);
@@ -249,8 +257,9 @@ err_kill_tasklet:
 
 static void __exit sleep_in_softirq_danger_module_exit(void)
 {
-	pr_info("exit: in_hardirq=%s in_softirq=%s in_task=%s\n", in_hardirq() ? "Y" : "N",
-		in_softirq() ? "Y" : "N", in_task() ? "Y" : "N");
+	pr_info("exit: in_hardirq=%s in_softirq=%s in_task=%s\n",
+		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N",
+		in_task() ? "Y" : "N");
 	debugfs_remove(gs_debug_dir);
 	free_irq(gs_virq, NULL);
 	irq_dispose_mapping(gs_virq);

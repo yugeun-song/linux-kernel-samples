@@ -82,7 +82,8 @@ static inline void print_shopping_cart(const struct user_info *user)
 	unsigned int i;
 
 	for (i = 0; i < user->n_cart_items; i++)
-		len += scnprintf(cart + len, sizeof(cart) - len, "%s%s", i ? ", " : "",
+		len += scnprintf(cart + len, sizeof(cart) - len, "%s%s",
+				 i ? ", " : "",
 				 get_food_name(user->shopping_cart[i]));
 
 	pr_info("  cart(%u/%u): %s\n", user->n_cart_items, MAX_CART_SIZE,
@@ -91,16 +92,20 @@ static inline void print_shopping_cart(const struct user_info *user)
 
 static void print_all_user_infos(void)
 {
+	struct user_info *first;
+	struct user_info *last;
 	struct user_info *user;
 
-	pr_info("%zu user infos in the list\n", list_count_nodes(&gs_user_info_list));
+	pr_info("%zu user infos in the list\n",
+		list_count_nodes(&gs_user_info_list));
 
 	if (list_empty(&gs_user_info_list))
 		return;
 
-	pr_info("first=%s last=%s\n",
-		list_first_entry(&gs_user_info_list, struct user_info, list_node)->username,
-		list_last_entry(&gs_user_info_list, struct user_info, list_node)->username);
+	first = list_first_entry(&gs_user_info_list, struct user_info,
+				 list_node);
+	last = list_last_entry(&gs_user_info_list, struct user_info, list_node);
+	pr_info("first=%s last=%s\n", first->username, last->username);
 
 	list_for_each_entry(user, &gs_user_info_list, list_node) {
 		pr_info("username=%s age=%u\n", user->username, user->age);
@@ -135,9 +140,11 @@ static void free_all_user_infos(void)
 
 static int __init list_module_init(void)
 {
-	static const char *const get_targets[] = { "username#2", "username#4", "nobody" };
-	static const char *const delete_targets[] = { "username#1", "username#1", "username#4",
-						      "nobody" };
+	static const char *const s_get_targets[] = { "username#2", "username#4",
+						     "nobody" };
+	static const char *const s_delete_targets[] = {
+		"username#1", "username#1", "username#4", "nobody"
+	};
 	struct user_info *user;
 	unsigned int i;
 	unsigned int j;
@@ -150,7 +157,8 @@ static int __init list_module_init(void)
 			goto err_free;
 		}
 
-		scnprintf(user->username, sizeof(user->username), "username#%u", i);
+		scnprintf(user->username, sizeof(user->username), "username#%u",
+			  i);
 		user->age = get_random_u32_below(100) + 1;
 		user->n_cart_items = get_random_u32_below(MAX_CART_SIZE + 1);
 
@@ -162,19 +170,20 @@ static int __init list_module_init(void)
 
 	print_all_user_infos();
 
-	for (i = 0; i < ARRAY_SIZE(get_targets); i++) {
-		user = get_user_info(get_targets[i]);
+	for (i = 0; i < ARRAY_SIZE(s_get_targets); i++) {
+		user = get_user_info(s_get_targets[i]);
 
 		if (user)
-			pr_info("'%s' is in the list and is %u years old\n", get_targets[i],
-				user->age);
+			pr_info("'%s' is in the list and is %u years old\n",
+				s_get_targets[i], user->age);
 		else
-			pr_info("'%s' is not in the list\n", get_targets[i]);
+			pr_info("'%s' is not in the list\n", s_get_targets[i]);
 	}
 
 	user = get_user_info("username#3");
 	if (user) {
-		pr_info("username#3 is %u years old, changing the age to 99\n", user->age);
+		pr_info("username#3 is %u years old, changing the age to 99\n",
+			user->age);
 
 		user->age = 99;
 		pr_info("username#3 is now %u years old\n", user->age);
@@ -185,13 +194,13 @@ static int __init list_module_init(void)
 		pr_info("replaced the cart of username#3 with milk and ham\n");
 	}
 
-	for (i = 0; i < ARRAY_SIZE(delete_targets); i++) {
-		ret = delete_user_info(delete_targets[i]);
+	for (i = 0; i < ARRAY_SIZE(s_delete_targets); i++) {
+		ret = delete_user_info(s_delete_targets[i]);
 		if (ret)
-			pr_info("there is no '%s' to delete (%pe)\n", delete_targets[i],
-				ERR_PTR(ret));
+			pr_info("there is no '%s' to delete (%pe)\n",
+				s_delete_targets[i], ERR_PTR(ret));
 		else
-			pr_info("deleted '%s'\n", delete_targets[i]);
+			pr_info("deleted '%s'\n", s_delete_targets[i]);
 	}
 
 	print_all_user_infos();
