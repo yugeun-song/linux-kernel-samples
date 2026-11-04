@@ -44,11 +44,13 @@ TARGET_SRC := KDIR
 endif
 KTREE := $(abspath $(or $(wildcard $(KDIR)),$(KDIR)))
 
+ifneq ($(filter-out clean distclean list,$(or $(MAKECMDGOALS),all)),)
 KINFO := $(shell python3 scripts/ktree.py check --baseline $(BASELINE) --arch '$(ARCH)' \
 	--cross '$(CROSS_COMPILE)' --llvm '$(LLVM)' \
 	--cc '$(if $(filter-out default,$(origin CC)),$(CC))' '$(KTREE)')
 ifneq ($(.SHELLSTATUS),0)
 $(error $(KINFO))
+endif
 endif
 
 ARCH := $(or $(ARCH),$(call kinfo,arch))
@@ -135,7 +137,7 @@ SUBMAKE = $(MAKE) -f $(DRIVER) $(PASS)
 COMPDB  = python3 scripts/compdb.py --kdir '$(KBUILD_DIR)' --link-dirs '$(KALIAS_DIRS)' \
 	$(if $(filter $(KOBJ)/src,$(KSRC)),--map '$(KSRC)=$(call kinfo,src)')
 
-.PHONY: all clean list tags cscope cscope.files compdb target $(SAMPLES)
+.PHONY: all clean distclean list tags cscope cscope.files compdb target $(SAMPLES)
 
 all: $(SAMPLES)
 	@$(MAKE) --no-print-directory tags cscope
@@ -176,8 +178,11 @@ endif
 clean:
 	find . -path ./.git -prune -o -path ./.kbuild -prune -o -name '.build-*' -type d -prune \
 		-exec rm -rf {} + -o \( -name '*.ko' -o -name '*.ko.debug' \) -type f -exec rm -f {} +
-	rm -rf .kbuild compile_commands.json compile_commands.json.tmp cscope.files \
-		cscope.files.tmp tags cscope.out cscope.in.out cscope.po.out .cache/clangd
+	rm -rf .kbuild .cache .clangd compile_commands.json compile_commands.json.tmp cscope.files \
+		cscope.files.tmp tags cscope.out cscope.in.out cscope.po.out
+
+distclean: clean
+	rm -f config.mk MOK.der MOK.priv
 
 list:
 	@for s in $(SAMPLES); do echo "$$s"; done

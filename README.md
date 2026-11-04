@@ -48,15 +48,17 @@ make PROFILE=release           # the same with release flags, see below
 make KDIR=/path/to/linux       # the same against another kernel tree, see below
 make <theme>/<sample>          # one sample, e.g. make data_structure/container_of
 make <theme>/<sample> SIGN=0   # the same, unsigned
-make clean                     # remove modules, .ko.debug, build dirs, compdb, clangd cache, tags, cscope
+make clean                     # remove modules, .ko.debug, build dirs, compdb, clangd caches, tags, cscope
+make distclean                 # make clean, plus config.mk and the signing key
 make list                      # list the registered samples
 make compdb                    # compile_commands.json for clangd
 make tags                      # ctags of the repo and the kernel headers it uses (also: make cscope)
 ```
 
 Modules are signed with a local key, `MOK.priv`/`MOK.der` (git-ignored),
-generated on the first build and kept by `make clean`. The signature is harmless
-without Secure Boot.
+generated on the first build, kept by `make clean` and deleted by
+`make distclean`; under Secure Boot the next key needs a new enrollment. The
+signature is harmless without Secure Boot.
 When `sign-file`, or `openssl` for a first key, is missing, the module stays
 unsigned with a warning. Modules for a release other than the running kernel's
 stay unsigned unless `SIGN=1`.
