@@ -1,30 +1,104 @@
 # SPDX-License-Identifier: 0BSD
 HOST_KVER     := $(shell uname -r)
-HOST_ARCH     := $(shell uname -m)
 KVER          ?= $(HOST_KVER)
 KDIR          ?= /lib/modules/$(KVER)/build
 ARCH          ?=
 CROSS_COMPILE ?=
+LLVM          ?=
+VMLINUX       ?=
+NPROC         ?= $(shell nproc)
+KALIAS_DIRS   ?= /usr/src
+BASELINE      := 6.12
 
 -include config.mk
 
+ifneq ($(filter-out 0 1,$(VMLINUX)),)
+$(error VMLINUX takes 0 or 1, not '$(VMLINUX)')
+endif
+
+ifeq ($(filter -j%,$(MAKEFLAGS)),)
+MAKEFLAGS += -j$(NPROC)
+endif
+
+comma := ,
+kinfo = $(patsubst $(1)=%,%,$(filter $(1)=%,$(KINFO)))
+
+ifeq ($(KDIR),/lib/modules/$(KVER)/build)
 ifeq ($(origin KVER),command line)
-TARGET_SRC := command line
+TARGET_SRC := KVER from the command line
 else ifneq ($(KVER),$(HOST_KVER))
-TARGET_SRC := config.mk
+TARGET_SRC := KVER from config.mk
 else ifeq ($(wildcard $(KDIR)/Makefile),)
 NEWEST_KVER := $(notdir $(patsubst %/build,%,$(lastword $(shell ls -d /lib/modules/*/build 2>/dev/null | sort -V))))
 KVER := $(or $(NEWEST_KVER),$(HOST_KVER))
 TARGET_SRC := newest installed; running $(HOST_KVER) has no build tree
 else
-TARGET_SRC := host default
+TARGET_SRC := running kernel
+endif
+else
+TARGET_SRC := KDIR
+endif
+KTREE := $(abspath $(or $(wildcard $(KDIR)),$(KDIR)))
+
+KINFO := $(shell python3 scripts/ktree.py check --baseline $(BASELINE) --arch '$(ARCH)' \
+	--cross '$(CROSS_COMPILE)' --llvm '$(LLVM)' \
+	--cc '$(if $(filter-out default,$(origin CC)),$(CC))' '$(KTREE)')
+ifneq ($(.SHELLSTATUS),0)
+$(error $(KINFO))
 endif
 
-ifneq ($(ARCH),)
-TARGET_ARCH := $(ARCH)
-else
-TARGET_ARCH := $(HOST_ARCH) (native)
+ARCH := $(or $(ARCH),$(call kinfo,arch))
+ifeq ($(CROSS_COMPILE)$(LLVM)$(filter-out default,$(origin CC)),)
+CROSS_COMPILE := $(call kinfo,cross)
+LLVM          := $(call kinfo,llvm)
+KCC           := $(call kinfo,cc)
 endif
+
+KBUILD_DIR := $(KTREE)
+ifeq ($(call kinfo,symvers),vmlinux)
+MODPOST    := KBUILD_EXTRA_SYMBOLS='$(KTREE)/vmlinux.symvers'
+TARGET_SRC := $(TARGET_SRC); exports from vmlinux.symvers
+else ifeq ($(call kinfo,symvers),none)
+KOBJ := $(CURDIR)/.kbuild/$(call kinfo,id)
+ifneq ($(call kinfo,tools),)
+$(error $(KTREE) was configured with another toolchain ($(subst $(comma), ,$(call kinfo,tools))), \
+	so building vmlinux here would rewrite its configuration)
+endif
+ifeq ($(wildcard $(KOBJ)/obj/vmlinux.symvers),)
+ifneq ($(VMLINUX),1)
+$(error $(KTREE) has no Module.symvers or vmlinux.symvers, so the modules cannot be checked \
+	against it; VMLINUX=1 builds vmlinux out of tree in .kbuild/ from its sources and .config)
+endif
+ifeq ($(call kinfo,sources),)
+$(error $(KTREE) has no kernel sources, so vmlinux cannot be built for it)
+endif
+KPREP := $(KOBJ)/obj/vmlinux.symvers
+else ifneq ($(call kinfo,release),)
+ifneq ($(call kinfo,release),$(shell cat '$(KOBJ)/obj/include/config/kernel.release'))
+$(error $(KOBJ:$(CURDIR)/%=%) holds a different release than $(KTREE); remove it to rebuild)
+endif
+endif
+KSRC       := $(if $(call kinfo,clean),$(call kinfo,src),$(KOBJ)/src)
+KBUILD_DIR := $(KOBJ)/obj
+MODPOST    := KBUILD_EXTRA_SYMBOLS='$(KOBJ)/obj/vmlinux.symvers'
+TARGET_SRC := $(TARGET_SRC); vmlinux built in $(KOBJ:$(CURDIR)/%=%)
+endif
+ifneq ($(call kinfo,fallback),)
+TARGET_SRC := $(TARGET_SRC)$(foreach f,$(subst $(comma), ,$(call kinfo,fallback)),; $(firstword \
+	$(subst :, ,$(f))) is missing$(comma) using $(lastword $(subst :, ,$(f))))
+endif
+ifneq ($(call kinfo,tools),)
+TARGET_SRC := $(TARGET_SRC); toolchain differs from its config: $(subst $(comma), ,$(call kinfo,tools))
+endif
+ifeq ($(call kinfo,elf)$(KOBJ),none)
+TARGET_SRC := $(TARGET_SRC); no vmlinux or empty.o there to check the modules against
+endif
+SIGN ?= $(if $(filter $(HOST_KVER),$(call kinfo,release)),1,0)
+
+TOOLCHAIN := $(if $(LLVM), LLVM=$(LLVM))$(if $(CROSS_COMPILE), CROSS_COMPILE=$(CROSS_COMPILE))$(if \
+	$(KCC), CC=$(KCC))
+KBUILD_TC := $(if $(ARCH),ARCH='$(ARCH)') $(if $(CROSS_COMPILE),CROSS_COMPILE='$(CROSS_COMPILE)') \
+	$(if $(LLVM),LLVM='$(LLVM)') $(if $(KCC),CC='$(KCC)')
 
 DRIVER  := scripts/kmod.mk
 
@@ -50,37 +124,66 @@ SAMPLES += $$(addprefix $(1)/,$$(samples))
 endef
 $(foreach d,$(SAMPLE_DIRS),$(eval $(call import_manifest,$(d))))
 
-PASS := KVER='$(KVER)' KDIR='$(KDIR)'
-ifneq ($(ARCH),)
-PASS += ARCH='$(ARCH)'
-endif
-ifneq ($(CROSS_COMPILE),)
-PASS += CROSS_COMPILE='$(CROSS_COMPILE)'
-endif
+PASS := KDIR='$(KBUILD_DIR)' $(KBUILD_TC) SIGN='$(SIGN)' KVER_BASELINE='$(BASELINE)' \
+	KSRCARCH='$(call kinfo,srcarch)' $(MODPOST)
 
 SUBMAKE = $(MAKE) -f $(DRIVER) $(PASS)
+COMPDB  = python3 scripts/compdb.py --kdir '$(KBUILD_DIR)' --link-dirs '$(KALIAS_DIRS)' \
+	$(if $(filter $(KOBJ)/src,$(KSRC)),--map '$(KSRC)=$(call kinfo,src)')
 
-.PHONY: all clean list tags cscope compdb target $(SAMPLES)
+.PHONY: all clean list tags cscope cscope.files compdb target $(SAMPLES)
 
-all: $(SAMPLES) compdb tags cscope
+all: $(SAMPLES)
+	@$(MAKE) --no-print-directory tags cscope
 
 compdb: $(SAMPLES)
-	python3 scripts/compdb.py
+	$(COMPDB)
 
-target:
-	@echo '=> target: KVER=$(KVER) ARCH=$(TARGET_ARCH) ($(TARGET_SRC))'
+target: | $(KPREP)
+	@printf '=> target: KVER=%s ARCH=%s (%s)\n' "$$(cat '$(KBUILD_DIR)/include/config/kernel.release')" \
+		'$(ARCH)$(TOOLCHAIN)' '$(TARGET_SRC)'
 
-$(SAMPLES): | target
+$(SAMPLES): | target $(KPREP)
 	$(SUBMAKE) build SAMPLE=$@
 
+ifneq ($(KPREP),)
+$(KPREP):
+	@echo "=> building vmlinux for $(KTREE) in $(KOBJ) from its .config; the tree is only read"
+	rm -rf '$(KOBJ)'
+	mkdir -p '$(KOBJ)/obj'
+ifeq ($(KSRC),$(KOBJ)/src)
+	cp -a --reflink=auto '$(call kinfo,src)' '$(KSRC)'
+	$(MAKE) -C '$(KSRC)' mrproper
+endif
+	cp '$(KTREE)/.config' '$(KOBJ)/obj/.config'
+	$(MAKE) -C '$(KSRC)' O='$(KOBJ)/obj' $(KBUILD_TC) syncconfig
+	@cmp -s '$(KTREE)/.config' '$(KOBJ)/obj/.config' || { diff '$(KTREE)/.config' \
+		'$(KOBJ)/obj/.config' | grep '^[<>]' | head -n8; rm -rf '$(KOBJ)'; echo "the" \
+		"configuration would change with this toolchain; refusing to build"; exit 1; }
+	$(MAKE) -C '$(KSRC)' O='$(KOBJ)/obj' $(KBUILD_TC) vmlinux modules_prepare
+	@python3 scripts/ktree.py check --baseline $(BASELINE) --arch '$(ARCH)' \
+		--release '$(call kinfo,release)' --elf '$(call kinfo,elf)' '$(KOBJ)/obj' > /dev/null \
+		|| { python3 scripts/ktree.py check --baseline $(BASELINE) --arch '$(ARCH)' \
+		--release '$(call kinfo,release)' --elf '$(call kinfo,elf)' '$(KOBJ)/obj'; \
+		rm -rf '$(KOBJ)'; exit 1; }
+endif
+
 clean:
-	@for s in $(SAMPLES); do $(SUBMAKE) clean SAMPLE=$$s; done
+	find . -path ./.git -prune -o -path ./.kbuild -prune -o -name '.build-*' -type d -prune \
+		-exec rm -rf {} + -o -name '*.ko' -type f -exec rm -f {} +
+	rm -rf .kbuild compile_commands.json compile_commands.json.tmp cscope.files \
+		cscope.files.tmp tags cscope.out cscope.in.out cscope.po.out .cache/clangd
 
 list:
 	@for s in $(SAMPLES); do echo "$$s"; done
 
-tags:
-	ctags -R --exclude=.git .
+cscope.files:
+	$(COMPDB)
 
-cscope:
-	cscope -Rbq
+tags: cscope.files
+	grep '^/' cscope.files | ctags -R --kinds-C=+p --kinds-C++=+p --exclude=.git \
+		--exclude=.cache --exclude=.kbuild --exclude='.build-*' --exclude=compile_commands.json \
+		-L - .
+
+cscope: cscope.files
+	cscope -bq -i cscope.files

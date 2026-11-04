@@ -4,10 +4,12 @@ KVER          ?= $(shell uname -r)
 KDIR          ?= /lib/modules/$(KVER)/build
 ARCH          ?=
 CROSS_COMPILE ?=
+LLVM          ?=
 SIGN          ?= 1
 SIGN_KEY      ?= $(CURDIR)/MOK.priv
 SIGN_CERT     ?= $(CURDIR)/MOK.der
 SIGN_SCRIPT   := $(dir $(firstword $(MAKEFILE_LIST)))sign-module.sh
+KTREE_SCRIPT  := $(dir $(firstword $(MAKEFILE_LIST)))ktree.py
 
 ifeq ($(SAMPLE),)
 $(error SAMPLE is not set)
@@ -16,7 +18,7 @@ endif
 src := $(abspath $(dir $(SAMPLE)))
 src_base := $(notdir $(SAMPLE))
 
-SAMPLE_MIN_KVER := 6.12
+SAMPLE_MIN_KVER := $(KVER_BASELINE)
 -include $(src)/sample.mk
 
 ifdef SAMPLE_MODULE
@@ -35,6 +37,10 @@ endif
 ifneq ($(CROSS_COMPILE),)
 KBUILD_ARGS += CROSS_COMPILE=$(CROSS_COMPILE)
 endif
+ifneq ($(LLVM),)
+KBUILD_ARGS += LLVM=$(LLVM)
+endif
+ktree := $(realpath $(KDIR))
 
 ifneq ($(filter build,$(MAKECMDGOALS)),)
 
@@ -48,29 +54,10 @@ ifeq ($(wildcard $(KDIR)/Makefile),)
 $(error kernel build tree not found: KDIR=$(KDIR) (set KVER= or KDIR=))
 endif
 
-ifneq ($(CROSS_COMPILE),)
-ifeq ($(shell command -v $(CROSS_COMPILE)gcc 2>/dev/null),)
-$(error cross compiler not found: $(CROSS_COMPILE)gcc not in PATH)
-endif
-endif
-
 ifdef SAMPLE_SUPPORTED_ARCH
-ifneq ($(ARCH),)
-eff_arch := $(ARCH)
-else
-eff_arch := $(shell uname -m)
-eff_arch := $(patsubst i%86,x86,$(eff_arch))
-eff_arch := $(patsubst x86_64,x86,$(eff_arch))
-eff_arch := $(patsubst aarch64,arm64,$(eff_arch))
-eff_arch := $(patsubst armv%,arm,$(eff_arch))
-eff_arch := $(patsubst riscv%,riscv,$(eff_arch))
-eff_arch := $(patsubst ppc64le,powerpc,$(eff_arch))
-eff_arch := $(patsubst ppc%,powerpc,$(eff_arch))
-eff_arch := $(patsubst s390x,s390,$(eff_arch))
-endif
-ifeq ($(filter $(SAMPLE_SUPPORTED_ARCH),$(eff_arch)),)
+ifeq ($(filter $(SAMPLE_SUPPORTED_ARCH),$(KSRCARCH)),)
 $(error $(SAMPLE) supports ARCH in [$(SAMPLE_SUPPORTED_ARCH)] (kbuild ARCH names); \
-	effective arch is $(eff_arch))
+	the target is $(or $(KSRCARCH),unknown))
 endif
 endif
 
@@ -104,20 +91,20 @@ endif
 
 endif
 
-.PHONY: build clean
+.PHONY: build
 
 build:
+	@[ "$$(cat $(bdir)/.kdir 2>/dev/null)" = '$(ktree)' ] || rm -rf $(bdir) $(src)/$(mod).ko
 	@mkdir -p $(bdir)
+	@echo '$(ktree)' > $(bdir)/.kdir
+	@$(if $(KBUILD_EXTRA_SYMBOLS),rm -f $(bdir)/Module.symvers,:)
 	@for c in $(srcs); do ln -sf $(src)/$$c $(bdir)/$$c; done
 	@echo 'obj-m := $(mod).o' > $(bdir)/Kbuild
 	@$(if $(mod_objs),echo '$(mod)-objs := $(mod_objs)' >> $(bdir)/Kbuild,:)
 	$(MAKE) -C $(KDIR) $(KBUILD_ARGS) modules
+	@python3 '$(KTREE_SCRIPT)' elf '$(KDIR)' '$(bdir)/$(mod).ko'
 	@cp $(bdir)/$(mod).ko $(src)/$(mod).ko
 ifeq ($(SIGN),1)
 	@sh '$(SIGN_SCRIPT)' '$(KDIR)/scripts/sign-file' '$(SIGN_KEY)' '$(SIGN_CERT)' \
 		'$(src)/$(mod).ko'
 endif
-
-clean:
-	@rm -rf $(bdir)
-	@rm -f $(src)/$(mod).ko

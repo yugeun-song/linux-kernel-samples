@@ -19,6 +19,7 @@ modules.order
 # ---- Generated kbuild stub + isolated per-sample build dirs (build time, never committed) ----
 Kbuild
 .build-*/
+.kbuild/
 
 # ---- PC-local build target config (not part of the repo) ----
 config.mk

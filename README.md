@@ -39,32 +39,86 @@ kernel log, so `dmesg` after `insmod` is the lesson.
 
 Prerequisites: headers for a 6.12 or later target kernel (`linux-headers` on
 Arch, `linux-headers-$(uname -r)` on Debian/Ubuntu, `kernel-devel` on Fedora),
-a C toolchain, and root to load.
+a C toolchain, python3, and root to load.
 
 ```
-make                           # build and sign every sample, then compdb, tags, cscope
+make                           # build and sign every sample, compdb, tags, cscope; one job per CPU
+make NPROC=4                   # the same with 4 jobs (make -j4 works too)
+make KDIR=/path/to/linux       # the same against another kernel tree, see below
 make <theme>/<sample>          # one sample, e.g. make data_structure/container_of
 make <theme>/<sample> SIGN=0   # the same, unsigned
-make clean                     # clean every registered sample
+make clean                     # remove modules, build dirs, compdb, clangd cache, tags, cscope
 make list                      # list the registered samples
 make compdb                    # compile_commands.json for clangd
-make tags                      # ctags index (also: make cscope)
+make tags                      # ctags of the repo and the kernel headers it uses (also: make cscope)
 ```
 
 Modules are signed with a local key, `MOK.priv`/`MOK.der` (git-ignored),
-generated on the first build. The signature is harmless without Secure Boot.
+generated on the first build and kept by `make clean`. The signature is harmless
+without Secure Boot.
 When `sign-file`, or `openssl` for a first key, is missing, the module stays
-unsigned with a warning.
+unsigned with a warning. Modules for a release other than the running kernel's
+stay unsigned unless `SIGN=1`.
 
 The running kernel is the default target, or the newest installed build tree
-when the running kernel's is gone (after an upgrade, before a reboot). Override
-it per invocation, or pin it with the same variables (`KVER := ...`) in a
-git-ignored `config.mk`:
+when the running kernel's is gone (after an upgrade, before a reboot).
+
+### Other kernels and architectures
+
+`KDIR` points the build at a kernel tree: the running kernel's headers by
+default, or any tree built for a board, a VM or another architecture. The
+modules, `compile_commands.json`, tags and cscope all follow it. Pass it per
+invocation, or pin it in a git-ignored `config.mk` (`KDIR := ...`).
 
 ```
-make <theme>/<sample> KVER=6.6.0-rpi KDIR=/path/to/rpi/kernel/build \
-    ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu-
+make KDIR=~/kernels/v6.18-arm64        # ARCH and the toolchain come from the tree
+make KDIR=~/bsp/out VMLINUX=1          # configured or prepared only: vmlinux in .kbuild/
+make KDIR=~/kernels/v6.18-x86_64 CC=gcc-16
 ```
+
+`scripts/ktree.py` reads the tree before anything runs and stops the build when
+the tree is not usable. It checks only what kbuild itself defines and produces
+(the version variables of the top `Makefile`, `scripts/subarch.include`, the
+ARCH aliases, `auto.conf.cmd`, the generated headers and host programs), so a
+vendor or BSP tree passes as long as kbuild produced it. Nothing in the tree is
+executed except its version scripts, which run from a temporary directory; the
+tree itself is never written.
+
+| tree | what happens |
+|---|---|
+| built, with `Module.symvers` | modules build against it; modpost checks every export |
+| vmlinux only, with `vmlinux.symvers` | the same, with exports checked against vmlinux |
+| prepared (`modules_prepare`) or configured (`.config`) only | stops; `VMLINUX=1` builds vmlinux out of tree and the modules against that build |
+| never configured, or not a kernel tree | stops with the reason |
+| older than 6.12 | stops |
+
+- `VMLINUX=1` works in `.kbuild/<version>-<arch>-<hash>/`. Kbuild builds out of
+  tree only from a clean source, so a tree built in place is first cloned with
+  `cp --reflink=auto` (free on btrfs); an `O=` tree uses its source directly.
+  The `.config` is copied byte for byte, and the build is refused when
+  `syncconfig` would change it. Later runs reuse the build while the tree's
+  `.config` and release stay the same. `make clean` removes `.kbuild/`.
+- Toolchain: the compiler recorded in the tree's configuration when it is
+  installed (`aarch64-linux-gnu-gcc-16`), else the same prefix without the
+  version (`aarch64-linux-gnu-gcc`), else plain `gcc` when the tree's
+  architecture is the host's. A clang tree gets `LLVM=-<major>` when every LLVM
+  tool carries that suffix, else `LLVM=1`. `ARCH=`, `CROSS_COMPILE=`, `LLVM=`
+  and `CC=` override the choice; an `ARCH` that the tree's kbuild does not map
+  to the tree's architecture stops the build.
+- Tool versions: the tree's own `cc-version.sh`, `ld-version.sh`,
+  `pahole-version.sh` and `rustc-version.sh` run against the chosen tools, and
+  the result is compared with what the configuration recorded. A difference is
+  shown in the banner for a module build and refuses a `VMLINUX=1` build, which
+  would otherwise rewrite the configuration.
+- Target check: the tree's `vmlinux` and `scripts/mod/empty.o` must agree on ELF
+  class, byte order and machine, and every built `.ko` must match them. A
+  mismatch stops the build and names both machines as `readelf` reports them;
+  a tree with neither file is noted in the banner.
+- A compile, link, modpost or target error stops `make`, and
+  `compile_commands.json`, tags and cscope keep their previous contents.
+- `KALIAS_DIRS` (default `/usr/src`) lists the directories whose symlinks the
+  compile database may use in place of a versioned kernel path.
+- Switching kernels rebuilds every sample from a clean `.build-<mod>/`.
 
 ### How the build works
 
@@ -75,14 +129,14 @@ kbuild, and the repo ships sources, not prebuilt modules.
 
 | stage | does |
 |-------|------|
-| `Makefile` | reads `SAMPLE_DIRS` and each directory's `manifest.mk`, applies the target defaults and `config.mk` |
-| `scripts/kmod.mk` | includes `sample.mk`, runs the preflight, symlinks the sources into `.build-<mod>/` and writes its `Kbuild` |
+| `Makefile` | reads `SAMPLE_DIRS` and each directory's `manifest.mk`, applies `config.mk`, has `scripts/ktree.py` check the tree and pick `ARCH` and the toolchain, and builds vmlinux in `.kbuild/` on `VMLINUX=1` |
+| `scripts/kmod.mk` | includes `sample.mk`, runs the preflight, clears `.build-<mod>/` when the kernel changed, symlinks the sources into it, writes its `Kbuild` and checks the target of the built `.ko` |
 | `make -C $(KDIR) M=<dir>/.build-<mod> modules` | compiles and links `<mod>.ko`, which `kmod.mk` copies next to the source and signs |
 
-The preflight stops with `$(error)` when the source, the kernel build tree or a
-requested cross compiler is missing, or when the arch, a required `CONFIG` or
-the kernel version does not fit. Each sample builds in its own git-ignored
-`.build-<mod>/`, so `make -j` builds samples in parallel.
+The preflight stops with `$(error)` when the source or the kernel build tree is
+missing, or when the arch, a required `CONFIG` or the kernel version does not
+fit. Each sample builds in its own git-ignored
+`.build-<mod>/`, so samples build in parallel.
 
 ## Loading
 
@@ -288,7 +342,10 @@ file and `.editorconfig` holds the rest. What those files cannot express:
 clangd needs the exact kbuild flags: `make compdb` builds
 `compile_commands.json` from the `.cmd` files in each `.build-<mod>/`, points
 every entry at the real source, and drops the GCC-only flags clang rejects.
-Build a sample before opening it in an editor.
+Build a sample before opening it in an editor. Kernel paths go through a
+version-less link to the build tree when the distribution keeps one (Arch's
+`/usr/src/linux`), so the database survives kernel upgrades; elsewhere, rerun
+`make compdb` once an upgrade removes the old tree.
 
 [coding-style]: https://www.kernel.org/doc/html/latest/process/coding-style.html
 
