@@ -42,17 +42,18 @@ Arch, `linux-headers-$(uname -r)` on Debian/Ubuntu, `kernel-devel` on Fedora),
 a C toolchain, python3, and root to load.
 
 ```
-make                           # build and sign every sample, compdb, tags, cscope; one job per CPU
+make                           # build and sign every sample (debug profile); one job per CPU
 make NPROC=4                   # the same with 4 jobs (make -j4 works too)
-make PROFILE=release           # the same with release flags, see below
+make release                   # the same with release flags (also PROFILE=release), see below
 make KDIR=/path/to/linux       # the same against another kernel tree, see below
 make <theme>/<sample>          # one sample, e.g. make data_structure/container_of
 make <theme>/<sample> SIGN=0   # the same, unsigned
-make clean                     # remove modules, .ko.debug, build dirs, compdb, clangd caches, tags, cscope
-make distclean                 # make clean, plus config.mk and the signing key
+make index                     # compile_commands.json for clangd, tags and cscope
+make clean-index               # remove the index files
+make clean                     # remove modules, .ko.debug, build dirs and .kbuild/
+make distclean                 # clean, clean-index, clangd caches, tool outputs, config.mk and the signing key
 make list                      # list the registered samples
-make compdb                    # compile_commands.json for clangd
-make tags                      # ctags of the repo and the kernel headers it uses (also: make cscope)
+make help                      # the targets above
 ```
 
 Modules are signed with a local key, `MOK.priv`/`MOK.der` (git-ignored),

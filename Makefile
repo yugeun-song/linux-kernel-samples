@@ -24,6 +24,18 @@ ifeq ($(filter -j%,$(MAKEFLAGS)),)
 MAKEFLAGS += -j$(NPROC)
 endif
 
+ifneq ($(word 2,$(MAKECMDGOALS)),)
+
+.PHONY: $(MAKECMDGOALS) run-goals-in-order
+
+$(MAKECMDGOALS): run-goals-in-order
+	@:
+
+run-goals-in-order:
+	@set -e; for goal in $(MAKECMDGOALS); do $(MAKE) --no-print-directory $$goal; done
+
+else
+
 comma := ,
 kinfo = $(patsubst $(1)=%,%,$(filter $(1)=%,$(KINFO)))
 
@@ -44,7 +56,7 @@ TARGET_SRC := KDIR
 endif
 KTREE := $(abspath $(or $(wildcard $(KDIR)),$(KDIR)))
 
-ifneq ($(filter-out clean distclean list,$(or $(MAKECMDGOALS),all)),)
+ifneq ($(filter-out clean clean-index distclean list help sanitize debug release,$(or $(MAKECMDGOALS),all)),)
 KINFO := $(shell python3 scripts/ktree.py check --baseline $(BASELINE) --arch '$(ARCH)' \
 	--cross '$(CROSS_COMPILE)' --llvm '$(LLVM)' \
 	--cc '$(if $(filter-out default,$(origin CC)),$(CC))' '$(KTREE)')
@@ -137,10 +149,22 @@ SUBMAKE = $(MAKE) -f $(DRIVER) $(PASS)
 COMPDB  = python3 scripts/compdb.py --kdir '$(KBUILD_DIR)' --link-dirs '$(KALIAS_DIRS)' \
 	$(if $(filter $(KOBJ)/src,$(KSRC)),--map '$(KSRC)=$(call kinfo,src)')
 
-.PHONY: all clean distclean list tags cscope cscope.files compdb target $(SAMPLES)
+.PHONY: all debug release sanitize index clean-index clean distclean help list tags cscope cscope.files \
+	compdb target $(SAMPLES)
 
 all: $(SAMPLES)
-	@$(MAKE) --no-print-directory tags cscope
+
+debug:
+	@$(MAKE) --no-print-directory PROFILE=debug all
+
+release:
+	@$(MAKE) --no-print-directory PROFILE=release all
+
+sanitize:
+	@echo "kernel modules take their sanitizers from the target kernel's configuration" \
+		"(CONFIG_KASAN, CONFIG_UBSAN, CONFIG_KCSAN); build against such a tree with KDIR="
+
+index: compdb tags cscope
 
 compdb: $(SAMPLES)
 	$(COMPDB)
@@ -178,17 +202,33 @@ endif
 clean:
 	find . -path ./.git -prune -o -path ./.kbuild -prune -o -name '.build-*' -type d -prune \
 		-exec rm -rf {} + -o \( -name '*.ko' -o -name '*.ko.debug' \) -type f -exec rm -f {} +
-	rm -rf .kbuild .cache .clangd compile_commands.json compile_commands.json.tmp cscope.files \
-		cscope.files.tmp tags cscope.out cscope.in.out cscope.po.out
+	rm -rf .kbuild
 
-distclean: clean
+clean-index:
+	rm -f compile_commands.json compile_commands.json.tmp cscope.files cscope.files.tmp tags \
+		cscope.out cscope.in.out cscope.po.out
+
+distclean: clean clean-index
+	rm -rf .cache .clangd gmon.out perf.data perf.data.old uftrace.data uftrace.data.old core \
+		core.[0-9]* vgcore.[0-9]*
 	rm -f config.mk MOK.der MOK.priv
+
+help:
+	@printf '%s\n' \
+		'make, make all    build every sample with PROFILE (debug by default)' \
+		'make debug        the same with the debug profile' \
+		'make release      the same with the release profile' \
+		'make sanitize     explains where kernel sanitizers come from' \
+		'make index        compile_commands.json, tags and cscope (also compdb, tags, cscope)' \
+		'make clean-index  remove the index files' \
+		'make clean        remove modules, .ko.debug, build dirs and .kbuild/' \
+		'make distclean    clean, clean-index, clangd caches, tool outputs, config.mk and the signing key' \
+		'make list         list the registered samples'
 
 list:
 	@for s in $(SAMPLES); do echo "$$s"; done
 
-cscope.files:
-	$(COMPDB)
+cscope.files: compdb
 
 tags: cscope.files
 	grep '^/' cscope.files | ctags -R --kinds-C=+p --kinds-C++=+p --exclude=.git \
@@ -197,3 +237,5 @@ tags: cscope.files
 
 cscope: cscope.files
 	cscope -bq -i cscope.files
+
+endif
