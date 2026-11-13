@@ -140,6 +140,9 @@ endef
 COMPDB = python3 scripts/clang-compdb.py --db compile_commands.json --kdir '$(KBUILD_DIR)' \
 	--profile '$(PROFILE)' --headers --cscope cscope.files --link-dirs '$(KALIAS_DIRS)' \
 	$(if $(filter $(KOBJ)/src,$(KSRC)),--map '$(KSRC)=$(call kinfo,src)')
+REFRESH = $(if $(and $(wildcard compile_commands.json),$(filter-out index compdb,$(or $(MAKECMDGOALS),all))), \
+	mv compile_commands.json compile_commands.json.old && $(KBUILD) compile_commands.json > /dev/null && \
+	$(COMPDB) --previous compile_commands.json.old,:)
 
 .PHONY: all debug release sanitize index clean-index clean distclean help list tags cscope cscope.files \
 	compdb target $(SAMPLES)
@@ -149,6 +152,7 @@ all: | target $(KPREP)
 	@$(call finish_modules,$$(sed 's/\.o$$/.ko/' modules.order))
 	@echo "=> $(PROFILE): $$(wc -l < modules.order) of $(words $(SAMPLES)) samples built against" \
 		"$$(cat '$(KBUILD_DIR)/include/config/kernel.release')"
+	@$(REFRESH)
 
 debug:
 	@$(MAKE) --no-print-directory PROFILE=debug all
