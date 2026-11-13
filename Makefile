@@ -7,8 +7,8 @@ CROSS_COMPILE ?=
 LLVM          ?=
 VMLINUX       ?=
 PROFILE       ?= debug
-KALIAS_DIRS   ?= /usr/src
-BASELINE      := 6.12
+KDIR_SYMLINK_DIRS   ?= /usr/src
+MIN_KERNEL_VERSION      := 6.12
 
 ifneq ($(filter-out 0 1,$(VMLINUX)),)
 $(error VMLINUX takes 0 or 1, not '$(VMLINUX)')
@@ -37,29 +37,29 @@ run-goals-in-order:
 else
 
 comma := ,
-kinfo = $(patsubst $(1)=%,%,$(filter $(1)=%,$(KINFO)))
+kinfo = $(patsubst $(1)=%,%,$(filter $(1)=%,$(KDIR_INFO)))
 
 ifeq ($(KDIR),/lib/modules/$(KVER)/build)
 ifneq ($(filter command line environment,$(origin KVER)),)
-TARGET_SRC := KVER from the $(origin KVER)
+TARGET_ORIGIN := KVER from the $(origin KVER)
 else ifeq ($(wildcard $(KDIR)/Makefile),)
 NEWEST_KVER := $(notdir $(patsubst %/build,%,$(lastword $(shell ls -d /lib/modules/*/build 2>/dev/null | sort -V))))
 KVER := $(or $(NEWEST_KVER),$(HOST_KVER))
-TARGET_SRC := newest installed; running $(HOST_KVER) has no build tree
+TARGET_ORIGIN := newest installed; running $(HOST_KVER) has no build tree
 else
-TARGET_SRC := running kernel
+TARGET_ORIGIN := running kernel
 endif
 else
-TARGET_SRC := KDIR
+TARGET_ORIGIN := KDIR
 endif
 KTREE := $(abspath $(or $(wildcard $(KDIR)),$(KDIR)))
 
 ifneq ($(filter-out clean clean-index distclean format format-check list help sanitize debug release,$(or $(MAKECMDGOALS),all)),)
-KINFO := $(shell python3 scripts/ktree.py check --baseline $(BASELINE) --arch '$(ARCH)' \
+KDIR_INFO := $(shell python3 scripts/check-kernel-tree.py check --min-version $(MIN_KERNEL_VERSION) --arch '$(ARCH)' \
 	--cross '$(CROSS_COMPILE)' --llvm '$(LLVM)' \
 	--cc '$(if $(filter-out default,$(origin CC)),$(CC))' '$(KTREE)')
 ifneq ($(.SHELLSTATUS),0)
-$(error $(KINFO))
+$(error $(KDIR_INFO))
 endif
 endif
 
@@ -72,8 +72,8 @@ endif
 
 KBUILD_DIR := $(KTREE)
 ifeq ($(call kinfo,symvers),vmlinux)
-MODPOST    := KBUILD_EXTRA_SYMBOLS='$(KTREE)/vmlinux.symvers'
-TARGET_SRC := $(TARGET_SRC); exports from vmlinux.symvers
+EXTRA_SYMBOLS    := KBUILD_EXTRA_SYMBOLS='$(KTREE)/vmlinux.symvers'
+TARGET_ORIGIN := $(TARGET_ORIGIN); exports from vmlinux.symvers
 else ifeq ($(call kinfo,symvers),none)
 KOBJ := $(CURDIR)/.kbuild/$(call kinfo,id)
 ifneq ($(call kinfo,tools),)
@@ -88,7 +88,7 @@ endif
 ifeq ($(call kinfo,sources),)
 $(error $(KTREE) has no kernel sources, so vmlinux cannot be built for it)
 endif
-KPREP := $(KOBJ)/obj/vmlinux.symvers
+VMLINUX_SYMVERS := $(KOBJ)/obj/vmlinux.symvers
 else ifneq ($(call kinfo,release),)
 ifneq ($(call kinfo,release),$(shell cat '$(KOBJ)/obj/include/config/kernel.release'))
 $(error $(KOBJ:$(CURDIR)/%=%) holds a different release than $(KTREE); remove it to rebuild)
@@ -96,33 +96,33 @@ endif
 endif
 KSRC       := $(if $(call kinfo,clean),$(call kinfo,src),$(KOBJ)/src)
 KBUILD_DIR := $(KOBJ)/obj
-MODPOST    := KBUILD_EXTRA_SYMBOLS='$(KOBJ)/obj/vmlinux.symvers'
-TARGET_SRC := $(TARGET_SRC); vmlinux built in $(KOBJ:$(CURDIR)/%=%)
+EXTRA_SYMBOLS    := KBUILD_EXTRA_SYMBOLS='$(KOBJ)/obj/vmlinux.symvers'
+TARGET_ORIGIN := $(TARGET_ORIGIN); vmlinux built in $(KOBJ:$(CURDIR)/%=%)
 endif
 ifneq ($(call kinfo,fallback),)
-TARGET_SRC := $(TARGET_SRC)$(foreach f,$(subst $(comma), ,$(call kinfo,fallback)),; $(firstword \
+TARGET_ORIGIN := $(TARGET_ORIGIN)$(foreach f,$(subst $(comma), ,$(call kinfo,fallback)),; $(firstword \
 	$(subst :, ,$(f))) is missing$(comma) using $(lastword $(subst :, ,$(f))))
 endif
 ifneq ($(call kinfo,tools),)
-TARGET_SRC := $(TARGET_SRC); toolchain differs from its config: $(subst $(comma), ,$(call kinfo,tools))
+TARGET_ORIGIN := $(TARGET_ORIGIN); toolchain differs from its config: $(subst $(comma), ,$(call kinfo,tools))
 endif
 ifeq ($(call kinfo,elf)$(KOBJ),none)
-TARGET_SRC := $(TARGET_SRC); no vmlinux or empty.o there to check the modules against
+TARGET_ORIGIN := $(TARGET_ORIGIN); no vmlinux or empty.o there to check the modules against
 endif
 SIGN ?= $(if $(filter $(HOST_KVER),$(call kinfo,release)),1,0)
 
 TOOLCHAIN := $(if $(LLVM), LLVM=$(LLVM))$(if $(CROSS_COMPILE), CROSS_COMPILE=$(CROSS_COMPILE))$(if \
 	$(KCC), CC=$(KCC))
-KBUILD_TC := $(if $(ARCH),ARCH='$(ARCH)') $(if $(CROSS_COMPILE),CROSS_COMPILE='$(CROSS_COMPILE)') \
+MODULE_TOOLCHAIN := $(if $(ARCH),ARCH='$(ARCH)') $(if $(CROSS_COMPILE),CROSS_COMPILE='$(CROSS_COMPILE)') \
 	$(if $(LLVM),LLVM='$(LLVM)') $(if $(KCC),CC='$(KCC)')
 
-KBUILD = $(MAKE) -C '$(KBUILD_DIR)' M='$(CURDIR)' $(KBUILD_TC) PROFILE='$(PROFILE)' \
-	$(if $(filter debug,$(PROFILE)),W=1) $(MODPOST)
+KBUILD = $(MAKE) -C '$(KBUILD_DIR)' M='$(CURDIR)' $(MODULE_TOOLCHAIN) PROFILE='$(PROFILE)' \
+	$(if $(filter debug,$(PROFILE)),W=1) $(EXTRA_SYMBOLS)
 OBJCOPY = $(if $(LLVM),$(filter %/,$(LLVM))llvm-objcopy$(filter -%,$(LLVM)),$(CROSS_COMPILE)objcopy)
 
 define finish_modules
 	for ko in $(1); do \
-	    python3 scripts/ktree.py elf '$(KBUILD_DIR)' "$$ko" || exit 1; \
+	    python3 scripts/check-kernel-tree.py elf '$(KBUILD_DIR)' "$$ko" || exit 1; \
 	    if [ '$(PROFILE)' = release ]; then \
 	        if readelf -S "$$ko" | grep -q '\.debug_info'; then \
 	            $(OBJCOPY) --only-keep-debug "$$ko" "$$ko.debug" && \
@@ -138,7 +138,7 @@ define finish_modules
 endef
 
 COMPDB = python3 scripts/clang-compdb.py --db compile_commands.json --kdir '$(KBUILD_DIR)' \
-	--profile '$(PROFILE)' --headers --cscope cscope.files --link-dirs '$(KALIAS_DIRS)' \
+	--profile '$(PROFILE)' --headers --cscope cscope.files --symlink-dirs '$(KDIR_SYMLINK_DIRS)' \
 	$(if $(filter $(KOBJ)/src,$(KSRC)),--map '$(KSRC)=$(call kinfo,src)')
 REFRESH = $(if $(and $(wildcard compile_commands.json),$(filter-out index compdb tags cscope cscope.files,$(or $(MAKECMDGOALS),all))), \
 	mv compile_commands.json compile_commands.json.old && $(KBUILD) compile_commands.json > /dev/null && \
@@ -148,7 +148,7 @@ REFRESH = $(if $(and $(wildcard compile_commands.json),$(filter-out index compdb
 	cscope.files \
 	compdb target $(SAMPLES)
 
-all: | target $(KPREP)
+all: | target $(VMLINUX_SYMVERS)
 	$(KBUILD) modules
 	@$(call finish_modules,$$(sed 's/\.o$$/.ko/' modules.order))
 	@echo "=> $(PROFILE): $$(wc -l < modules.order) of $(words $(SAMPLES)) samples built against" \
@@ -172,18 +172,18 @@ compdb: all
 	@$(KBUILD) compile_commands.json > /dev/null
 	@$(COMPDB)
 
-target: | $(KPREP)
+target: | $(VMLINUX_SYMVERS)
 	@printf '=> target: KVER=%s ARCH=%s PROFILE=%s (%s)\n' \
 		"$$(cat '$(KBUILD_DIR)/include/config/kernel.release')" '$(ARCH)$(TOOLCHAIN)' \
-		'$(PROFILE)' '$(TARGET_SRC)'
+		'$(PROFILE)' '$(TARGET_ORIGIN)'
 
-$(SAMPLES): | target $(KPREP)
+$(SAMPLES): | target $(VMLINUX_SYMVERS)
 	$(KBUILD) $@.ko
 	@$(call finish_modules,$@.ko)
 	@echo "=> $(PROFILE): $@.ko"
 
-ifneq ($(KPREP),)
-$(KPREP):
+ifneq ($(VMLINUX_SYMVERS),)
+$(VMLINUX_SYMVERS):
 	@echo "=> vmlinux: building for $(KTREE) in $(KOBJ) from its .config, the tree is only read"
 	rm -rf '$(KOBJ)'
 	mkdir -p '$(KOBJ)/obj'
@@ -192,14 +192,14 @@ ifeq ($(KSRC),$(KOBJ)/src)
 	$(MAKE) -C '$(KSRC)' mrproper
 endif
 	cp '$(KTREE)/.config' '$(KOBJ)/obj/.config'
-	$(MAKE) -C '$(KSRC)' O='$(KOBJ)/obj' $(KBUILD_TC) syncconfig
+	$(MAKE) -C '$(KSRC)' O='$(KOBJ)/obj' $(MODULE_TOOLCHAIN) syncconfig
 	@cmp -s '$(KTREE)/.config' '$(KOBJ)/obj/.config' || { diff '$(KTREE)/.config' \
 		'$(KOBJ)/obj/.config' | grep '^[<>]' | head -n8; rm -rf '$(KOBJ)'; echo "the" \
 		"configuration would change with this toolchain; refusing to build"; exit 1; }
-	$(MAKE) -C '$(KSRC)' O='$(KOBJ)/obj' $(KBUILD_TC) vmlinux modules_prepare
-	@python3 scripts/ktree.py check --baseline $(BASELINE) --arch '$(ARCH)' \
+	$(MAKE) -C '$(KSRC)' O='$(KOBJ)/obj' $(MODULE_TOOLCHAIN) vmlinux modules_prepare
+	@python3 scripts/check-kernel-tree.py check --min-version $(MIN_KERNEL_VERSION) --arch '$(ARCH)' \
 		--release '$(call kinfo,release)' --elf '$(call kinfo,elf)' '$(KOBJ)/obj' > /dev/null \
-		|| { python3 scripts/ktree.py check --baseline $(BASELINE) --arch '$(ARCH)' \
+		|| { python3 scripts/check-kernel-tree.py check --min-version $(MIN_KERNEL_VERSION) --arch '$(ARCH)' \
 		--release '$(call kinfo,release)' --elf '$(call kinfo,elf)' '$(KOBJ)/obj'; \
 		rm -rf '$(KOBJ)'; exit 1; }
 endif
@@ -228,7 +228,7 @@ help:
 		'' \
 		'goals:' \
 		'  all           every registered sample with the PROFILE flags' \
-		'  debug         all with PROFILE=debug: -DDEBUG -g3, -fstack-protector-all, pattern init, GCOV, KCOV' \
+		'  debug         all with PROFILE=debug: -DDEBUG -g3, no inlining, all stack protectors, gcov and kcov' \
 		'  release       all with PROFILE=release: the kernel flags plus -g, debug info split into .ko.debug' \
 		'  sanitize      explain where kernel sanitizers come from' \
 		'  index         compile_commands.json with the PROFILE flags, tags and cscope.out' \

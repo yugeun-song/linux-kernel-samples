@@ -107,7 +107,7 @@ make KDIR=~/bsp/out VMLINUX=1          # configured or prepared only: vmlinux in
 make KDIR=~/kernels/v6.18-x86_64 CC=gcc-16
 ```
 
-`scripts/ktree.py` reads the tree before anything runs and stops the build when
+`scripts/check-kernel-tree.py` reads the tree before anything runs and stops the build when
 the tree is not usable. It checks only what kbuild itself defines and produces
 (the version variables of the top `Makefile`, `scripts/subarch.include`, the
 ARCH aliases, `auto.conf.cmd`, the generated headers and host programs), so a
@@ -147,7 +147,7 @@ tree itself is never written.
   a tree with neither file is noted in the banner.
 - A compile, link, modpost or target error stops `make`, and
   `compile_commands.json`, tags and cscope keep their previous contents.
-- `KALIAS_DIRS` (default `/usr/src`) lists the directories whose symlinks the
+- `KDIR_SYMLINK_DIRS` (default `/usr/src`) lists the directories whose symlinks the
   compile database may use in place of a versioned kernel path.
 - Switching kernels or profiles rebuilds what changed: kbuild compares the
   command and the dependencies it recorded for each object.
@@ -161,7 +161,7 @@ kbuild, and the repo ships sources, not prebuilt modules.
 
 | stage | does |
 |-------|------|
-| `Makefile` | has `scripts/ktree.py` check the tree and pick `ARCH` and the toolchain, builds vmlinux in `.kbuild/` on `VMLINUX=1`, and runs kbuild |
+| `Makefile` | has `scripts/check-kernel-tree.py` check the tree and pick `ARCH` and the toolchain, builds vmlinux in `.kbuild/` on `VMLINUX=1`, and runs kbuild |
 | `make -C $(KDIR) M=$(CURDIR) modules` | reads the top `Kbuild`, which lists the sample directories, and each directory's `Kbuild`, which lists its modules and includes the `PROFILE` flags of `scripts/profile.mk`; compiles and links every `.ko` next to its source, in parallel |
 | `Makefile`, after kbuild | checks the target of every built `.ko`, splits it for `release` and signs it |
 
