@@ -270,7 +270,7 @@ cscope.files: compdb
 tags: cscope.files
 	@if command -v ctags > /dev/null 2>&1; then \
 	    grep '^/' cscope.files | ctags -R --kinds-C=+p --kinds-C++=+p --exclude=.git \
-	        --exclude=.cache --exclude=.kbuild --exclude='.build-*' --exclude=compile_commands.json \
+	        --exclude=.cache --exclude=.kbuild --exclude='*.mod.c' --exclude=compile_commands.json \
 	        -L - . && echo "=> tags: the repository and $$(grep -c '^/' cscope.files) kernel headers"; \
 	else \
 	    echo "=> tags: skipped, ctags not found"; \
