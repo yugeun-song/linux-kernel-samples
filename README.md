@@ -99,7 +99,8 @@ release the default of a shell.
 default, or any tree built for a board, a VM or another architecture. The
 modules, `compile_commands.json`, tags and cscope all follow it. Pass it per
 invocation or export it; every variable of `make help` also comes from the
-environment.
+environment. The samples build against Linux 6.18 (LTS) through mainline,
+checked with 6.18.63, 7.3 and 7.4-rc2 for x86_64, arm64 and riscv64.
 
 ```
 make KDIR=~/kernels/v6.18-arm64        # ARCH and the toolchain come from the tree
