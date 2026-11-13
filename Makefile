@@ -140,7 +140,7 @@ endef
 COMPDB = python3 scripts/clang-compdb.py --db compile_commands.json --kdir '$(KBUILD_DIR)' \
 	--profile '$(PROFILE)' --headers --cscope cscope.files --link-dirs '$(KALIAS_DIRS)' \
 	$(if $(filter $(KOBJ)/src,$(KSRC)),--map '$(KSRC)=$(call kinfo,src)')
-REFRESH = $(if $(and $(wildcard compile_commands.json),$(filter-out index compdb,$(or $(MAKECMDGOALS),all))), \
+REFRESH = $(if $(and $(wildcard compile_commands.json),$(filter-out index compdb tags cscope cscope.files,$(or $(MAKECMDGOALS),all))), \
 	mv compile_commands.json compile_commands.json.old && $(KBUILD) compile_commands.json > /dev/null && \
 	$(COMPDB) --previous compile_commands.json.old,:)
 
