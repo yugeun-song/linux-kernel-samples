@@ -75,14 +75,17 @@ when the running kernel's is gone (after an upgrade, before a reboot).
 what the kernel provides for tracing: ftrace and kprobes, tracepoints, module
 BTF, and dynamic debug (`-DDYNAMIC_DEBUG_MODULE` when the kernel has only
 `CONFIG_DYNAMIC_DEBUG_CORE`). The sanitizers the kernel enables (KASAN, KMSAN,
-UBSAN, KCSAN) instrument both, and the optimization level stays the kernel's.
+UBSAN, KCSAN) instrument both. The optimization level stays the kernel's, because
+kernel code does not build at `-O0` or `-Og`; `-Wshadow` stays out, because the
+kernel's own headers trip it.
 
 | | `debug` | `release` |
 |---|---|---|
 | `pr_debug()`, `dev_dbg()` | on (`-DDEBUG`) | off, switchable through dynamic debug |
-| DWARF | `-g3` with macros, also over a kernel built with reduced or no debug info | moved to `<mod>.ko.debug`; the `.ko` keeps its symbols and BTF, loses its debug sections (`--strip-debug`, as `INSTALL_MOD_STRIP=1`) and names the file in `.gnu_debuglink` |
-| inlining, tail calls | `-fno-inline-functions-called-once` and `-fno-optimize-sibling-calls`: more functions for ftrace and kprobes, every frame in a stack trace | the kernel's |
-| stack checks | `-fstack-protector-all` where the kernel has a stack protector; a pattern instead of zeroes where it initializes the stack | the kernel's |
+| DWARF | `-g3` with macros, every type (`-fno-eliminate-unused-debug-types`) and the compiler options (`-grecord-gcc-switches`), also over a kernel built with reduced or no debug info | moved to `<mod>.ko.debug`; the `.ko` keeps its symbols and BTF, loses its debug sections (`--strip-debug`, as `INSTALL_MOD_STRIP=1`) and names the file in `.gnu_debuglink` |
+| code shape | `-fno-inline`, `-fno-optimize-sibling-calls` and `-fno-builtin`: every function and library call stays a call, for ftrace, kprobes and gdb; frame pointers in every function (`-fno-omit-frame-pointer -mno-omit-leaf-frame-pointer`) | the kernel's |
+| stack checks | `-fstack-protector-all` where the kernel has a stack protector; stack variables start as a pattern (`-ftrivial-auto-var-init=pattern`), not zeroes or garbage | the kernel's |
+| sanitizers | `KASAN_SANITIZE`, `KCSAN_SANITIZE`, `KMSAN_SANITIZE` and `UBSAN_SANITIZE` set to `y`, which take effect on a kernel built with that sanitizer | the kernel's |
 | coverage | `GCOV_PROFILE` and `KCOV_INSTRUMENT`, on kernels with gcov or kcov | the kernel's |
 | warnings | `W=1` | the kernel's |
 
