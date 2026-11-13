@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: 0BSD
+include $(KBUILD_EXTMOD)/scripts/profile.mk
+
+ifdef CONFIG_IRQ_SIM
+obj-m += interrupt_competition.o
+else
+$(info => interrupts/concurrency: skipped, the kernel lacks CONFIG_IRQ_SIM)
+endif

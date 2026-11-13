@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: 0BSD
+include $(KBUILD_EXTMOD)/scripts/profile.mk
+
+ifdef CONFIG_IRQ_SIM
+obj-m += hardirq.o
+obj-m += irq_none.o
+obj-m += disable_irq.o
+else
+$(info => interrupts/hardirq: skipped, the kernel lacks CONFIG_IRQ_SIM)
+endif

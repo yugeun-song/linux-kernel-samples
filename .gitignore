@@ -17,13 +17,8 @@ modules.order
 *.dwo
 *.gcno
 
-# ---- Generated kbuild stub + isolated per-sample build dirs (build time, never committed) ----
-Kbuild
-.build-*/
+# ---- vmlinux built out of tree for a configured or prepared kernel (VMLINUX=1) ----
 .kbuild/
-
-# ---- PC-local build target config (not part of the repo) ----
-config.mk
 
 # ---- Module-signing key material (never commit) ----
 MOK.*

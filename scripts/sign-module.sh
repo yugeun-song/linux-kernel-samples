@@ -7,6 +7,10 @@ key=$2
 cert=$3
 ko=$4
 
+if tail -c 28 "$ko" | grep -q '~Module signature appended~'; then
+	exit 0
+fi
+
 exec 9<"$0"
 flock 9
 

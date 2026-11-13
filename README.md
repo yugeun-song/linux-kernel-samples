@@ -43,7 +43,7 @@ a C toolchain, python3, and root to load.
 
 ```
 make                           # build and sign every sample (debug profile); one job per CPU
-make NPROC=4                   # the same with 4 jobs (make -j4 works too)
+make -j4                       # the same with 4 jobs
 make release                   # the same with release flags (also PROFILE=release), see below
 make KDIR=/path/to/linux       # the same against another kernel tree, see below
 make <theme>/<sample>          # one sample, e.g. make data_structure/container_of
@@ -51,7 +51,7 @@ make <theme>/<sample> SIGN=0   # the same, unsigned
 make index                     # compile_commands.json with the PROFILE flags, tags and cscope
 make clean-index               # remove the index files
 make clean                     # remove modules, .ko.debug, build dirs and .kbuild/
-make distclean                 # clean, clean-index, clangd caches, tool outputs, config.mk and the signing key
+make distclean                 # clean, clean-index, clangd caches, tool outputs and the signing key
 make list                      # list the registered samples
 make help                      # the goals and the variables
 ```
@@ -85,15 +85,16 @@ UBSAN, KCSAN) instrument both, and the optimization level stays the kernel's.
 | coverage | `GCOV_PROFILE` and `KCOV_INSTRUMENT`, on kernels with gcov or kcov | the kernel's |
 | warnings | `W=1` | the kernel's |
 
-Release modules are signed after the strip. Pin a profile in `config.mk` with
-`PROFILE := release`.
+Release modules are signed after the strip. `export PROFILE=release` makes
+release the default of a shell.
 
 ### Other kernels and architectures
 
 `KDIR` points the build at a kernel tree: the running kernel's headers by
 default, or any tree built for a board, a VM or another architecture. The
 modules, `compile_commands.json`, tags and cscope all follow it. Pass it per
-invocation, or pin it in a git-ignored `config.mk` (`KDIR := ...`).
+invocation or export it; every variable of `make help` also comes from the
+environment.
 
 ```
 make KDIR=~/kernels/v6.18-arm64        # ARCH and the toolchain come from the tree
@@ -143,7 +144,8 @@ tree itself is never written.
   `compile_commands.json`, tags and cscope keep their previous contents.
 - `KALIAS_DIRS` (default `/usr/src`) lists the directories whose symlinks the
   compile database may use in place of a versioned kernel path.
-- Switching kernels rebuilds every sample from a clean `.build-<mod>/`.
+- Switching kernels or profiles rebuilds what changed: kbuild compares the
+  command and the dependencies it recorded for each object.
 
 ### How the build works
 
@@ -154,14 +156,13 @@ kbuild, and the repo ships sources, not prebuilt modules.
 
 | stage | does |
 |-------|------|
-| `Makefile` | reads `SAMPLE_DIRS` and each directory's `manifest.mk`, applies `config.mk`, has `scripts/ktree.py` check the tree and pick `ARCH` and the toolchain, and builds vmlinux in `.kbuild/` on `VMLINUX=1` |
-| `scripts/kmod.mk` | includes `sample.mk`, runs the preflight, clears `.build-<mod>/` when the kernel changed, symlinks the sources into it, writes its `Kbuild` with the `PROFILE` flags of `scripts/profile.mk` and checks the target of the built `.ko` |
-| `make -C $(KDIR) M=<dir>/.build-<mod> modules` | compiles and links `<mod>.ko`, which `kmod.mk` copies next to the source, splits for `release` and signs |
+| `Makefile` | has `scripts/ktree.py` check the tree and pick `ARCH` and the toolchain, builds vmlinux in `.kbuild/` on `VMLINUX=1`, and runs kbuild |
+| `make -C $(KDIR) M=$(CURDIR) modules` | reads the top `Kbuild`, which lists the sample directories, and each directory's `Kbuild`, which lists its modules and includes the `PROFILE` flags of `scripts/profile.mk`; compiles and links every `.ko` next to its source, in parallel |
+| `Makefile`, after kbuild | checks the target of every built `.ko`, splits it for `release` and signs it |
 
-The preflight stops with `$(error)` when the source or the kernel build tree is
-missing, or when the arch, a required `CONFIG` or the kernel version does not
-fit. Each sample builds in its own git-ignored
-`.build-<mod>/`, so samples build in parallel.
+A directory's `Kbuild` skips the samples whose `CONFIG` the target kernel lacks
+and says so in a `=>` line; kbuild itself stops when a source or the kernel
+build tree is missing.
 
 ## Loading
 
@@ -326,33 +327,27 @@ MODULE_VERSION("1.0");
   and the irq_sim API; the kthread API itself,
   `kthread_create_on_node()`/`kthread_stop()`, is a plain `EXPORT_SYMBOL`).
 
-Registration is explicit, like the kernel's per-directory `obj-m`: only listed
-samples build, so work-in-progress files and userspace helpers can share a
-directory. Add the name to the directory's `manifest.mk`:
+Registration is explicit, as in the kernel: each directory's `Kbuild` names its
+modules in `obj-m`, so work-in-progress files and userspace helpers can share a
+directory. Add the object to the directory's `Kbuild`:
 
 ```make
-# data_structure/manifest.mk
-samples := \
-	container_of \
-	list
+# data_structure/Kbuild
+include $(KBUILD_EXTMOD)/scripts/profile.mk
+
+obj-m += container_of.o
+obj-m += list.o
 ```
 
-A new directory also needs its own `manifest.mk` and an entry in `SAMPLE_DIRS`
-in the top-level `Makefile`. The build stops when a listed `manifest.mk` is
-missing or lists no samples.
+A new directory needs its own `Kbuild`, starting with the same `include`, and an
+`obj-m += <dir>/` line in the top `Kbuild`. Everything else is plain kbuild:
 
-Special build requirements go in an optional `sample.mk` beside the sources. It
-is included for every sample in its directory, so it branches on
-`$(notdir $(SAMPLE))` when the samples differ:
-
-| variable | meaning |
-|----------|---------|
-| `SAMPLE_MODULE` | module name when it differs from the source file basename |
-| `SAMPLE_OBJS` | object list for a multi-file module (`a.o b.o`) |
-| `SAMPLE_REQUIRED_CONFIGS` | kernel configs that must be `=y`/`=m` (e.g. `CONFIG_KPROBES`) |
-| `SAMPLE_SUPPORTED_ARCH` | allowed arches, in kbuild ARCH names (e.g. `x86 arm64`) |
-| `SAMPLE_MIN_KVER` | minimum kernel version, when a sample needs more than the 6.12 baseline (e.g. `6.15`) |
-| `SAMPLE_MAX_KVER` | maximum kernel version, for an API removed later (e.g. `6.7`) |
+| need | kbuild |
+|------|--------|
+| a module of several files | `obj-m += foo.o` with `foo-y := a.o b.o` |
+| a kernel option | `ifdef CONFIG_KPROBES` around the `obj-m` line, with an `$(info => ...)` line in the `else` |
+| an architecture | `ifeq ($(SRCARCH),x86)` around the `obj-m` line |
+| a kernel version | `#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 15, 0)` with `#error` in the source |
 
 ## Coding style
 
@@ -365,9 +360,10 @@ file and `.editorconfig` holds the rest. What those files cannot express:
 - SPDX `0BSD` and `MODULE_LICENSE("Dual BSD/GPL")`, where the kernel uses
   `GPL-2.0` and `MODULE_LICENSE("GPL")`.
 
-clangd needs the exact kbuild flags: `make compdb` builds
-`compile_commands.json` from the `.cmd` files in each `.build-<mod>/`, points
-every entry at the real source, and drops the GCC-only flags clang rejects.
+clangd needs the exact kbuild flags: `make compdb` has kbuild write
+`compile_commands.json` (`make M=... compile_commands.json`), and
+`scripts/clang-compdb.py` drops the GCC-only flags clang rejects and lists the
+kernel headers the samples include in `cscope.files`.
 Build a sample before opening it in an editor. Kernel paths go through a
 version-less link to the build tree when the distribution keeps one (Arch's
 `/usr/src/linux`), so the database survives kernel upgrades; elsewhere, rerun

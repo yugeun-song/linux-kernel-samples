@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: 0BSD
+include $(KBUILD_EXTMOD)/scripts/profile.mk
+
+ifeq ($(if $(CONFIG_IRQ_SIM),,1)$(if $(CONFIG_DEBUG_FS),,1),)
+obj-m += sleep_in_hardirq_danger.o
+obj-m += sleep_in_softirq_danger.o
+else
+$(info => interrupts/danger: skipped, the kernel lacks CONFIG_IRQ_SIM or CONFIG_DEBUG_FS)
+endif

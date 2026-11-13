@@ -1,4 +1,10 @@
 # SPDX-License-Identifier: 0BSD
+include $(KBUILD_EXTMOD)/scripts/profile.mk
+
 # smpboot_register_percpu_thread() lives in kernel/smpboot.c, which is built only
 # under CONFIG_SMP; on a uniprocessor kernel the symbol is absent at link time.
-SAMPLE_REQUIRED_CONFIGS := CONFIG_SMP
+ifdef CONFIG_SMP
+obj-m += percpu_parallel.o
+else
+$(info => smp/percpu/percpu_parallel: skipped, the kernel lacks CONFIG_SMP)
+endif

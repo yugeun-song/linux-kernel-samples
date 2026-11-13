@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: 0BSD
+include $(KBUILD_EXTMOD)/scripts/profile.mk
+
+obj-m += container_of.o
+obj-m += list.o

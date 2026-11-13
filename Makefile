@@ -7,11 +7,8 @@ CROSS_COMPILE ?=
 LLVM          ?=
 VMLINUX       ?=
 PROFILE       ?= debug
-NPROC         ?= $(shell nproc)
 KALIAS_DIRS   ?= /usr/src
 BASELINE      := 6.12
-
--include config.mk
 
 ifneq ($(filter-out 0 1,$(VMLINUX)),)
 $(error VMLINUX takes 0 or 1, not '$(VMLINUX)')
@@ -21,8 +18,11 @@ $(error PROFILE takes debug or release, not '$(PROFILE)')
 endif
 
 ifeq ($(filter -j%,$(MAKEFLAGS)),)
-MAKEFLAGS += -j$(NPROC)
+MAKEFLAGS += -j$(shell nproc)
 endif
+
+SAMPLES := $(sort $(foreach k,$(wildcard */Kbuild */*/Kbuild),$(addprefix $(dir $(k)),$(patsubst %.o,%,\
+	$(filter %.o,$(shell sed -n 's/^obj-m[[:space:]]*+=//p' '$(k)'))))))
 
 ifneq ($(word 2,$(MAKECMDGOALS)),)
 
@@ -40,10 +40,8 @@ comma := ,
 kinfo = $(patsubst $(1)=%,%,$(filter $(1)=%,$(KINFO)))
 
 ifeq ($(KDIR),/lib/modules/$(KVER)/build)
-ifeq ($(origin KVER),command line)
-TARGET_SRC := KVER from the command line
-else ifneq ($(KVER),$(HOST_KVER))
-TARGET_SRC := KVER from config.mk
+ifneq ($(filter command line environment,$(origin KVER)),)
+TARGET_SRC := KVER from the $(origin KVER)
 else ifeq ($(wildcard $(KDIR)/Makefile),)
 NEWEST_KVER := $(notdir $(patsubst %/build,%,$(lastword $(shell ls -d /lib/modules/*/build 2>/dev/null | sort -V))))
 KVER := $(or $(NEWEST_KVER),$(HOST_KVER))
@@ -118,42 +116,38 @@ TOOLCHAIN := $(if $(LLVM), LLVM=$(LLVM))$(if $(CROSS_COMPILE), CROSS_COMPILE=$(C
 KBUILD_TC := $(if $(ARCH),ARCH='$(ARCH)') $(if $(CROSS_COMPILE),CROSS_COMPILE='$(CROSS_COMPILE)') \
 	$(if $(LLVM),LLVM='$(LLVM)') $(if $(KCC),CC='$(KCC)')
 
-DRIVER  := scripts/kmod.mk
+KBUILD = $(MAKE) -C '$(KBUILD_DIR)' M='$(CURDIR)' $(KBUILD_TC) PROFILE='$(PROFILE)' \
+	$(if $(filter debug,$(PROFILE)),W=1) $(MODPOST)
+OBJCOPY = $(if $(LLVM),$(filter %/,$(LLVM))llvm-objcopy$(filter -%,$(LLVM)),$(CROSS_COMPILE)objcopy)
 
-SAMPLE_DIRS := \
-	smp/percpu \
-	interrupts/hardirq \
-	interrupts/deferred \
-	interrupts/danger \
-	interrupts/concurrency \
-	data_structure
-
-SAMPLES :=
-define import_manifest
-ifeq ($$(wildcard $(1)/manifest.mk),)
-$$(error $(1)/manifest.mk: not found (listed in SAMPLE_DIRS))
-endif
-samples :=
-include $(1)/manifest.mk
-ifeq ($$(strip $$(samples)),)
-$$(error $(1)/manifest.mk: samples is empty)
-endif
-SAMPLES += $$(addprefix $(1)/,$$(samples))
+define finish_modules
+	for ko in $(1); do \
+	    python3 scripts/ktree.py elf '$(KBUILD_DIR)' "$$ko" || exit 1; \
+	    if [ '$(PROFILE)' = release ]; then \
+	        if readelf -S "$$ko" | grep -q '\.debug_info'; then \
+	            $(OBJCOPY) --only-keep-debug "$$ko" "$$ko.debug" && \
+	            $(OBJCOPY) --strip-debug --add-gnu-debuglink="$$ko.debug" "$$ko" || exit 1; \
+	        fi; \
+	    else \
+	        rm -f "$$ko.debug"; \
+	    fi; \
+	    if [ '$(SIGN)' = 1 ]; then \
+	        sh scripts/sign-module.sh '$(KBUILD_DIR)/scripts/sign-file' MOK.priv MOK.der "$$ko" || exit 1; \
+	    fi; \
+	done
 endef
-$(foreach d,$(SAMPLE_DIRS),$(eval $(call import_manifest,$(d))))
 
-PASS := KDIR='$(KBUILD_DIR)' $(KBUILD_TC) SIGN='$(SIGN)' PROFILE='$(PROFILE)' \
-	KVER_BASELINE='$(BASELINE)' KSRCARCH='$(call kinfo,srcarch)' $(MODPOST)
-
-SUBMAKE = $(MAKE) -f $(DRIVER) $(PASS)
-COMPDB  = python3 scripts/compdb.py --kdir '$(KBUILD_DIR)' --profile '$(PROFILE)' --link-dirs '$(KALIAS_DIRS)' \
+COMPDB = python3 scripts/clang-compdb.py --db compile_commands.json --kdir '$(KBUILD_DIR)' \
+	--profile '$(PROFILE)' --headers --cscope cscope.files --link-dirs '$(KALIAS_DIRS)' \
 	$(if $(filter $(KOBJ)/src,$(KSRC)),--map '$(KSRC)=$(call kinfo,src)')
 
 .PHONY: all debug release sanitize index clean-index clean distclean help list tags cscope cscope.files \
 	compdb target $(SAMPLES)
 
-all: $(SAMPLES)
-	@echo "=> $(PROFILE): $(words $(SAMPLES)) samples built against" \
+all: | target $(KPREP)
+	$(KBUILD) modules
+	@$(call finish_modules,$$(sed 's/\.o$$/.ko/' modules.order))
+	@echo "=> $(PROFILE): $$(wc -l < modules.order) of $(words $(SAMPLES)) samples built against" \
 		"$$(cat '$(KBUILD_DIR)/include/config/kernel.release')"
 
 debug:
@@ -168,8 +162,10 @@ sanitize:
 
 index: compdb tags cscope
 
-compdb: $(SAMPLES)
-	$(COMPDB)
+compdb: all
+	@rm -f compile_commands.json
+	@$(KBUILD) compile_commands.json > /dev/null
+	@$(COMPDB)
 
 target: | $(KPREP)
 	@printf '=> target: KVER=%s ARCH=%s PROFILE=%s (%s)\n' \
@@ -177,7 +173,9 @@ target: | $(KPREP)
 		'$(PROFILE)' '$(TARGET_SRC)'
 
 $(SAMPLES): | target $(KPREP)
-	$(SUBMAKE) build SAMPLE=$@
+	$(KBUILD) $@.ko
+	@$(call finish_modules,$@.ko)
+	@echo "=> $(PROFILE): $@.ko"
 
 ifneq ($(KPREP),)
 $(KPREP):
@@ -202,10 +200,11 @@ endif
 endif
 
 clean:
-	@find . -path ./.git -prune -o -path ./.kbuild -prune -o -name '.build-*' -type d -prune \
-		-exec rm -rf {} + -o \( -name '*.ko' -o -name '*.ko.debug' \) -type f -exec rm -f {} +
-	@rm -rf .kbuild
-	@echo "=> clean: removed the modules, .ko.debug files, .build-* directories and .kbuild/"
+	@find . -path ./.git -prune -o -path ./.kbuild -prune -o -type f \( -name '*.o' -o -name '*.ko' \
+		-o -name '*.ko.debug' -o -name '*.mod' -o -name '*.mod.c' -o -name '.*.cmd' -o -name '*.order' \
+		-o -name Module.symvers -o -name '*.dwo' -o -name '*.gcno' \) -exec rm -f {} +
+	@rm -rf .kbuild .tmp_versions
+	@echo "=> clean: removed the objects, modules, .ko.debug files and .kbuild/"
 
 clean-index:
 	@rm -f compile_commands.json compile_commands.json.tmp cscope.files cscope.files.tmp tags \
@@ -215,8 +214,8 @@ clean-index:
 distclean: clean clean-index
 	@rm -rf .cache .clangd gmon.out perf.data perf.data.old uftrace.data uftrace.data.old core \
 		core.[0-9]* vgcore.[0-9]*
-	@rm -f config.mk MOK.der MOK.priv
-	@echo "=> distclean: removed .cache/, .clangd/, tool outputs, config.mk and the signing key (MOK.der, MOK.priv)"
+	@rm -f MOK.der MOK.priv
+	@echo "=> distclean: removed .cache/, .clangd/, tool outputs and the signing key (MOK.der, MOK.priv)"
 
 help:
 	@printf '%s\n' \
@@ -230,21 +229,22 @@ help:
 		'  index         compile_commands.json with the PROFILE flags, tags and cscope.out' \
 		'  compdb        compile_commands.json and cscope.files only (tags and cscope make the others)' \
 		'  clean-index   remove compile_commands.json, tags and cscope.*' \
-		'  clean         remove the modules, .ko.debug files, .build-* directories and .kbuild/' \
-		'  distclean     clean, clean-index, clangd caches, tool outputs, config.mk and the signing key' \
+		'  clean         remove the objects, modules, .ko.debug files and .kbuild/' \
+		'  distclean     clean, clean-index, clangd caches, tool outputs and the signing key' \
 		'  list          list the registered samples' \
 		'  <dir>/<name>  one sample, for example $(firstword $(SAMPLES))' \
 		'  help          print this help' \
 		'' \
 		'variables:' \
 		'  PROFILE=debug|release         what all builds and which flags index uses (default debug)' \
-		'  KVER=<release>                kernel release under /lib/modules (default: the running one)' \
+		'  KVER=<release>                kernel release under /lib/modules (default: the running one,' \
+		'                                else the newest one that has a build tree)' \
 		'  KDIR=<dir>                    kernel build tree instead of /lib/modules/KVER/build' \
 		'  ARCH=, CROSS_COMPILE=, LLVM=  target and toolchain, as in Kbuild (default: from the tree)' \
 		'  VMLINUX=0|1                   build vmlinux in .kbuild/ for a configured or prepared tree' \
 		'  SIGN=0|1                      sign the modules with MOK.priv (default: 1 for the running kernel)' \
 		'' \
-		'Goals run in the order given. config.mk can hold any of these variables.'
+		'Goals run in the order given. Variables also come from the environment.'
 
 list:
 	@for s in $(SAMPLES); do echo "$$s"; done
