@@ -255,7 +255,8 @@ help:
 list:
 	@for s in $(SAMPLES); do echo "$$s"; done
 
-FORMAT_SRCS = $(shell git ls-files -- '*.c' '*.h' 2> /dev/null)
+FORMAT_SRCS = $(or $(shell git ls-files -- '*.c' '*.h' 2> /dev/null),$(patsubst ./%,%,$(shell \
+	find . -path './.*' -prune -o \( -name '*.[ch]' ! -name '*.mod.c' \) -print 2> /dev/null | sort)))
 
 format:
 	@clang-format -i $(FORMAT_SRCS)
