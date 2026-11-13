@@ -7,12 +7,12 @@ end_of_line = lf
 insert_final_newline = true
 trim_trailing_whitespace = true
 
-# Kernel C sources: strict kernel style — hard tabs, 8-column display width.
+# C sources: the c-programming style with the kernel's indentation, hard tabs 8 columns wide.
 [*.{c,h}]
 indent_style = tab
 indent_size = 8
 tab_width = 8
-max_line_length = 80
+max_line_length = 100
 
 # Kbuild and Makefiles require hard tabs by language definition.
 [{Kbuild,Makefile,makefile,GNUmakefile,*.mk}]

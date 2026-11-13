@@ -292,26 +292,26 @@ directory that owns that theme. Directories are created on demand:
 The minimal shape:
 
 ```c
-// SPDX-License-Identifier: 0BSD
+/* SPDX-License-Identifier: 0BSD */
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/printk.h>
 
-static int __init demo_module_init(void)
+static int __init init_demo_module(void)
 {
 	pr_info("loaded\n");
 	return 0;
 }
 
-static void __exit demo_module_exit(void)
+static void __exit exit_demo_module(void)
 {
 	pr_info("unloaded\n");
 }
 
-module_init(demo_module_init);
-module_exit(demo_module_exit);
+module_init(init_demo_module);
+module_exit(exit_demo_module);
 
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("Minimal module skeleton");
@@ -355,12 +355,14 @@ A new directory needs its own `Kbuild`, starting with the same `include`, and an
 
 ## Coding style
 
-[Linux kernel coding style][coding-style]: `.clang-format` is the kernel's own
-file and `.editorconfig` holds the rest. What those files cannot express:
+The [c-programming C coding style][coding-style], with the kernel's indentation:
+hard tabs, 8 columns wide. `.clang-format` and `.editorconfig` hold what tools
+can check; `make format` applies `.clang-format` and `make format-check` lists
+what it would change. The kernel API keeps its own conventions where the style
+would contradict it: `pr_fmt`, `module_init`, `MODULE_*`, the kernel types
+(`u64`, `size_t`, `atomic_t`) and `-errno` returns. What the files cannot express:
 
 - `#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt` on the line after the SPDX tag.
-- Variable prefixes: `s_` for a static local, `g_` for a global, `gs_` for a
-  static global.
 - SPDX `0BSD` and `MODULE_LICENSE("Dual BSD/GPL")`, where the kernel uses
   `GPL-2.0` and `MODULE_LICENSE("GPL")`.
 
@@ -373,7 +375,7 @@ version-less link to the build tree when the distribution keeps one (Arch's
 `/usr/src/linux`), so the database survives kernel upgrades; elsewhere, rerun
 `make compdb` once an upgrade removes the old tree.
 
-[coding-style]: https://www.kernel.org/doc/html/latest/process/coding-style.html
+[coding-style]: https://github.com/yugeun-song/c-programming/blob/main/docs/coding-style.md
 
 ## License
 

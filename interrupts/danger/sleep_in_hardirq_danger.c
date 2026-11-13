@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+/* SPDX-License-Identifier: 0BSD */
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
 /*
@@ -13,7 +13,7 @@
  *
  * Verified on kernel 7.3.0-rc3 (virtme-ng config plus GPIO_SIM for irq_sim)
  * with danger_enabled=1. Captured live with ftrace function_graph
- * (set_graph_function=hardirq_danger_top_half, max_graph_depth=30) and dmesg.
+ * (set_graph_function=handle_hardirq_danger_top_half, max_graph_depth=30) and dmesg.
  * The captured trace is longer than what is shown here; every part trimmed from
  * the real output is marked with "..." (deep callee internals -- BUG and
  * WARNING reporting, the scheduler -- and the setup/teardown calls around the
@@ -21,7 +21,7 @@
  *
  * ftrace function_graph:
  *
- *  0)               |  hardirq_danger_top_half [sleep_in_hardirq_danger]() {
+ *  0)               |  handle_hardirq_danger_top_half [sleep_in_hardirq_danger]() {
  *  0)               |    _printk() {
  *  0)               |      ...
  *  0) + 12.731 us   |    }
@@ -75,7 +75,7 @@
  *   ...
  *   msleep+0x1f/0x30
  *   ...
- *   hardirq_danger_top_half+0x87/0xa0 [sleep_in_hardirq_danger]
+ *   handle_hardirq_danger_top_half+0x87/0xa0 [sleep_in_hardirq_danger]
  *   ...
  *   __handle_irq_event_percpu+0x64/0x210
  *   handle_irq_event+0x41/0x90
@@ -91,7 +91,7 @@
  *   asm_sysvec_irq_work+0x1f/0x30
  *   ...
  *   irq_set_irqchip_state+0xb0/0x120
- *   trigger_write+0x27/0x40 [sleep_in_hardirq_danger]
+ *   write_trigger+0x27/0x40 [sleep_in_hardirq_danger]
  *   ...
  *   full_proxy_write+0x68/0xb0
  *   vfs_write+0xd6/0x580
@@ -105,7 +105,7 @@
  *  ...
  *  sleep_in_hardirq_danger: returned from the illegal sleep; the system may now be unstable
  *  ...
- *  irq 59 handler hardirq_danger_top_half+0x0/0xa0 [sleep_in_hardirq_danger] enabled interrupts
+ *  irq 59 handler handle_hardirq_danger_top_half+0x0/0xa0 [sleep_in_hardirq_danger] enabled interrupts
  *  WARNING: kernel/irq/handle.c:214 at __handle_irq_event_percpu+0x1cc/0x210, CPU#0: sh/83
  *  ...
  *  BUG: scheduling while atomic: sh/83/0xff000001
@@ -143,14 +143,14 @@
 static struct irq_domain *gs_sim_domain;
 static struct dentry *gs_debug_dir;
 static unsigned int gs_virq;
-static bool gs_debugfs_danger_enabled;
+static bool gs_is_danger_enabled;
 
-static irqreturn_t hardirq_danger_top_half(int irq, void *dev_id)
+static irqreturn_t handle_hardirq_danger_top_half(int irq, void *const mut_dev_id_nullable)
 {
 	pr_info("top half: in_hardirq=%s in_softirq=%s in_task=%s\n",
-		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N",
-		in_task() ? "Y" : "N");
-	if (!READ_ONCE(gs_debugfs_danger_enabled)) {
+		(in_hardirq() != 0) ? "Y" : "N", (in_softirq() != 0) ? "Y" : "N",
+		(in_task() != 0) ? "Y" : "N");
+	if (!READ_ONCE(gs_is_danger_enabled)) {
 		pr_warn("danger_enabled=0: skipping the illegal in-hardirq sleep (safe mock, no-op)\n");
 		return IRQ_HANDLED;
 	}
@@ -167,50 +167,47 @@ static irqreturn_t hardirq_danger_top_half(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static ssize_t trigger_write(struct file *file, const char __user *ubuf,
-			     size_t len, loff_t *ppos)
+static ssize_t write_trigger(struct file *const mut_file, const char __user *const ubuf_nullable,
+			     size_t len, loff_t *const mut_ppos)
 {
-	int ret;
-
-	ret = irq_set_irqchip_state(gs_virq, IRQCHIP_STATE_PENDING, true);
-	if (ret) {
+	int ret = irq_set_irqchip_state(gs_virq, IRQCHIP_STATE_PENDING, true);
+	if (ret != 0) {
 		pr_err("failed to raise the simulated irq: %d\n", ret);
 		return ret;
 	}
-	return len;
+	return (ssize_t)len;
 }
 
-static const struct file_operations gs_trigger_fops = {
-	.owner = THIS_MODULE,
-	.open = simple_open,
-	.write = trigger_write,
-};
-
-static int __init sleep_in_hardirq_danger_module_init(void)
+static int __init init_sleep_in_hardirq_danger_module(void)
 {
-	int ret;
+	static const struct file_operations s_trigger_fops = {
+		.owner = THIS_MODULE,
+		.open = simple_open,
+		.write = write_trigger
+	};
 
 	pr_info("init: in_hardirq=%s in_softirq=%s in_task=%s\n",
-		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N",
-		in_task() ? "Y" : "N");
+		(in_hardirq() != 0) ? "Y" : "N", (in_softirq() != 0) ? "Y" : "N",
+		(in_task() != 0) ? "Y" : "N");
+
+	int ret;
 
 	gs_sim_domain = irq_domain_create_sim(NULL, SIM_IRQ_LINES);
 	if (IS_ERR(gs_sim_domain)) {
-		ret = PTR_ERR(gs_sim_domain);
+		ret = (int)PTR_ERR(gs_sim_domain);
 		pr_err("irq_domain_create_sim failed: %d\n", ret);
 		return ret;
 	}
 
 	gs_virq = irq_create_mapping(gs_sim_domain, SIM_IRQ_HWIRQ);
-	if (!gs_virq) {
+	if (gs_virq == 0) {
 		pr_err("irq_create_mapping failed\n");
 		ret = -ENODEV;
 		goto err_remove_sim;
 	}
 
-	ret = request_irq(gs_virq, hardirq_danger_top_half, 0, KBUILD_MODNAME,
-			  NULL);
-	if (ret) {
+	ret = request_irq(gs_virq, handle_hardirq_danger_top_half, 0, KBUILD_MODNAME, NULL);
+	if (ret != 0) {
 		pr_err("request_irq failed: %d\n", ret);
 		goto err_dispose_mapping;
 	}
@@ -222,15 +219,12 @@ static int __init sleep_in_hardirq_danger_module_init(void)
 	 */
 	gs_debug_dir = debugfs_create_dir(KBUILD_MODNAME, NULL);
 	if (IS_ERR(gs_debug_dir)) {
-		ret = PTR_ERR(gs_debug_dir);
-		pr_err("debugfs unavailable (%d); cannot create danger controls\n",
-		       ret);
+		ret = (int)PTR_ERR(gs_debug_dir);
+		pr_err("debugfs unavailable (%d); cannot create danger controls\n", ret);
 		goto err_free_irq;
 	}
-	debugfs_create_bool("danger_enabled", 0600, gs_debug_dir,
-			    &gs_debugfs_danger_enabled);
-	debugfs_create_file("trigger", 0200, gs_debug_dir, NULL,
-			    &gs_trigger_fops);
+	debugfs_create_bool("danger_enabled", 0600, gs_debug_dir, &gs_is_danger_enabled);
+	debugfs_create_file("trigger", 0200, gs_debug_dir, NULL, &s_trigger_fops);
 
 	pr_info("loaded; set .../%s/danger_enabled to 1 then write .../trigger for the illegal path; trigger alone is a safe mock\n",
 		KBUILD_MODNAME);
@@ -242,23 +236,26 @@ err_dispose_mapping:
 	irq_dispose_mapping(gs_virq);
 err_remove_sim:
 	irq_domain_remove_sim(gs_sim_domain);
+	gs_sim_domain = NULL;
 	return ret;
 }
 
-static void __exit sleep_in_hardirq_danger_module_exit(void)
+static void __exit exit_sleep_in_hardirq_danger_module(void)
 {
 	pr_info("exit: in_hardirq=%s in_softirq=%s in_task=%s\n",
-		in_hardirq() ? "Y" : "N", in_softirq() ? "Y" : "N",
-		in_task() ? "Y" : "N");
+		(in_hardirq() != 0) ? "Y" : "N", (in_softirq() != 0) ? "Y" : "N",
+		(in_task() != 0) ? "Y" : "N");
 	debugfs_remove(gs_debug_dir);
+	gs_debug_dir = NULL;
 	free_irq(gs_virq, NULL);
 	irq_dispose_mapping(gs_virq);
 	irq_domain_remove_sim(gs_sim_domain);
+	gs_sim_domain = NULL;
 	pr_info("unloaded\n");
 }
 
-module_init(sleep_in_hardirq_danger_module_init);
-module_exit(sleep_in_hardirq_danger_module_exit);
+module_init(init_sleep_in_hardirq_danger_module);
+module_exit(exit_sleep_in_hardirq_danger_module);
 
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("Illegal sleep in hardirq context (debugfs-gated)");
