@@ -115,6 +115,7 @@ def write(path, text):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--kdir", required=True)
+    ap.add_argument("--profile", default="")
     ap.add_argument("--link-dirs", default="")
     ap.add_argument("--map", action="append", default=[])
     ap.add_argument("--out", default=os.path.join(ROOT, "compile_commands.json"))
@@ -186,11 +187,12 @@ def main():
     write(opts.files, "\n".join(repo + sorted(headers)) + "\n")
 
     via = f", kernel via {' '.join(sorted(links))}" if links else ""
-    print(f"compile_commands.json: {len(entries)} entries for {kdir}{via}; "
+    flags = f" with the {opts.profile} flags" if opts.profile else ""
+    print(f"=> compile_commands.json: {len(entries)} entries{flags} for {kdir}{via}, "
           f"{len(rejected)} gcc-only flags dropped")
     for flag in rejected:
         print(f"  dropped {flag}")
-    print(f"cscope.files: {len(repo)} repo files + {len(headers)} kernel headers")
+    print(f"=> cscope.files: {len(repo)} repository files and {len(headers)} kernel headers")
 
 
 if __name__ == "__main__":

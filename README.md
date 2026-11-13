@@ -48,12 +48,12 @@ make release                   # the same with release flags (also PROFILE=relea
 make KDIR=/path/to/linux       # the same against another kernel tree, see below
 make <theme>/<sample>          # one sample, e.g. make data_structure/container_of
 make <theme>/<sample> SIGN=0   # the same, unsigned
-make index                     # compile_commands.json for clangd, tags and cscope
+make index                     # compile_commands.json with the PROFILE flags, tags and cscope
 make clean-index               # remove the index files
 make clean                     # remove modules, .ko.debug, build dirs and .kbuild/
 make distclean                 # clean, clean-index, clangd caches, tool outputs, config.mk and the signing key
 make list                      # list the registered samples
-make help                      # the targets above
+make help                      # the goals and the variables
 ```
 
 Modules are signed with a local key, `MOK.priv`/`MOK.der` (git-ignored),

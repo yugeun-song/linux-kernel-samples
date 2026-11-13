@@ -146,13 +146,15 @@ PASS := KDIR='$(KBUILD_DIR)' $(KBUILD_TC) SIGN='$(SIGN)' PROFILE='$(PROFILE)' \
 	KVER_BASELINE='$(BASELINE)' KSRCARCH='$(call kinfo,srcarch)' $(MODPOST)
 
 SUBMAKE = $(MAKE) -f $(DRIVER) $(PASS)
-COMPDB  = python3 scripts/compdb.py --kdir '$(KBUILD_DIR)' --link-dirs '$(KALIAS_DIRS)' \
+COMPDB  = python3 scripts/compdb.py --kdir '$(KBUILD_DIR)' --profile '$(PROFILE)' --link-dirs '$(KALIAS_DIRS)' \
 	$(if $(filter $(KOBJ)/src,$(KSRC)),--map '$(KSRC)=$(call kinfo,src)')
 
 .PHONY: all debug release sanitize index clean-index clean distclean help list tags cscope cscope.files \
 	compdb target $(SAMPLES)
 
 all: $(SAMPLES)
+	@echo "=> $(PROFILE): $(words $(SAMPLES)) samples built against" \
+		"$$(cat '$(KBUILD_DIR)/include/config/kernel.release')"
 
 debug:
 	@$(MAKE) --no-print-directory PROFILE=debug all
@@ -161,7 +163,7 @@ release:
 	@$(MAKE) --no-print-directory PROFILE=release all
 
 sanitize:
-	@echo "kernel modules take their sanitizers from the target kernel's configuration" \
+	@echo "=> sanitize: kernel modules take their sanitizers from the target kernel's configuration" \
 		"(CONFIG_KASAN, CONFIG_UBSAN, CONFIG_KCSAN); build against such a tree with KDIR="
 
 index: compdb tags cscope
@@ -179,7 +181,7 @@ $(SAMPLES): | target $(KPREP)
 
 ifneq ($(KPREP),)
 $(KPREP):
-	@echo "=> building vmlinux for $(KTREE) in $(KOBJ) from its .config; the tree is only read"
+	@echo "=> vmlinux: building for $(KTREE) in $(KOBJ) from its .config, the tree is only read"
 	rm -rf '$(KOBJ)'
 	mkdir -p '$(KOBJ)/obj'
 ifeq ($(KSRC),$(KOBJ)/src)
@@ -200,30 +202,49 @@ endif
 endif
 
 clean:
-	find . -path ./.git -prune -o -path ./.kbuild -prune -o -name '.build-*' -type d -prune \
+	@find . -path ./.git -prune -o -path ./.kbuild -prune -o -name '.build-*' -type d -prune \
 		-exec rm -rf {} + -o \( -name '*.ko' -o -name '*.ko.debug' \) -type f -exec rm -f {} +
-	rm -rf .kbuild
+	@rm -rf .kbuild
+	@echo "=> clean: removed the modules, .ko.debug files, .build-* directories and .kbuild/"
 
 clean-index:
-	rm -f compile_commands.json compile_commands.json.tmp cscope.files cscope.files.tmp tags \
+	@rm -f compile_commands.json compile_commands.json.tmp cscope.files cscope.files.tmp tags \
 		cscope.out cscope.in.out cscope.po.out
+	@echo "=> clean-index: removed compile_commands.json, tags and cscope.*"
 
 distclean: clean clean-index
-	rm -rf .cache .clangd gmon.out perf.data perf.data.old uftrace.data uftrace.data.old core \
+	@rm -rf .cache .clangd gmon.out perf.data perf.data.old uftrace.data uftrace.data.old core \
 		core.[0-9]* vgcore.[0-9]*
-	rm -f config.mk MOK.der MOK.priv
+	@rm -f config.mk MOK.der MOK.priv
+	@echo "=> distclean: removed .cache/, .clangd/, tool outputs, config.mk and the signing key (MOK.der, MOK.priv)"
 
 help:
 	@printf '%s\n' \
-		'make, make all    build every sample with PROFILE (debug by default)' \
-		'make debug        the same with the debug profile' \
-		'make release      the same with the release profile' \
-		'make sanitize     explains where kernel sanitizers come from' \
-		'make index        compile_commands.json, tags and cscope (also compdb, tags, cscope)' \
-		'make clean-index  remove the index files' \
-		'make clean        remove modules, .ko.debug, build dirs and .kbuild/' \
-		'make distclean    clean, clean-index, clangd caches, tool outputs, config.mk and the signing key' \
-		'make list         list the registered samples'
+		'usage: make [goal ...] [VARIABLE=value ...]' \
+		'' \
+		'goals:' \
+		'  all           every registered sample with the PROFILE flags' \
+		'  debug         all with PROFILE=debug: -DDEBUG -g3, -fstack-protector-all, pattern init, GCOV, KCOV' \
+		'  release       all with PROFILE=release: the kernel flags plus -g, debug info split into .ko.debug' \
+		'  sanitize      explain where kernel sanitizers come from' \
+		'  index         compile_commands.json with the PROFILE flags, tags and cscope.out' \
+		'  compdb        compile_commands.json and cscope.files only (tags and cscope make the others)' \
+		'  clean-index   remove compile_commands.json, tags and cscope.*' \
+		'  clean         remove the modules, .ko.debug files, .build-* directories and .kbuild/' \
+		'  distclean     clean, clean-index, clangd caches, tool outputs, config.mk and the signing key' \
+		'  list          list the registered samples' \
+		'  <dir>/<name>  one sample, for example $(firstword $(SAMPLES))' \
+		'  help          print this help' \
+		'' \
+		'variables:' \
+		'  PROFILE=debug|release         what all builds and which flags index uses (default debug)' \
+		'  KVER=<release>                kernel release under /lib/modules (default: the running one)' \
+		'  KDIR=<dir>                    kernel build tree instead of /lib/modules/KVER/build' \
+		'  ARCH=, CROSS_COMPILE=, LLVM=  target and toolchain, as in Kbuild (default: from the tree)' \
+		'  VMLINUX=0|1                   build vmlinux in .kbuild/ for a configured or prepared tree' \
+		'  SIGN=0|1                      sign the modules with MOK.priv (default: 1 for the running kernel)' \
+		'' \
+		'Goals run in the order given. config.mk can hold any of these variables.'
 
 list:
 	@for s in $(SAMPLES); do echo "$$s"; done
@@ -231,11 +252,19 @@ list:
 cscope.files: compdb
 
 tags: cscope.files
-	grep '^/' cscope.files | ctags -R --kinds-C=+p --kinds-C++=+p --exclude=.git \
-		--exclude=.cache --exclude=.kbuild --exclude='.build-*' --exclude=compile_commands.json \
-		-L - .
+	@if command -v ctags > /dev/null 2>&1; then \
+	    grep '^/' cscope.files | ctags -R --kinds-C=+p --kinds-C++=+p --exclude=.git \
+	        --exclude=.cache --exclude=.kbuild --exclude='.build-*' --exclude=compile_commands.json \
+	        -L - . && echo "=> tags: the repository and $$(grep -c '^/' cscope.files) kernel headers"; \
+	else \
+	    echo "=> tags: skipped, ctags not found"; \
+	fi
 
 cscope: cscope.files
-	cscope -bq -i cscope.files
+	@if command -v cscope > /dev/null 2>&1; then \
+	    cscope -bq -i cscope.files && echo "=> cscope.out: $$(wc -l < cscope.files) files"; \
+	else \
+	    echo "=> cscope.out: skipped, cscope not found"; \
+	fi
 
 endif
