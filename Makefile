@@ -54,7 +54,7 @@ TARGET_SRC := KDIR
 endif
 KTREE := $(abspath $(or $(wildcard $(KDIR)),$(KDIR)))
 
-ifneq ($(filter-out clean clean-index distclean list help sanitize debug release,$(or $(MAKECMDGOALS),all)),)
+ifneq ($(filter-out clean clean-index distclean format format-check list help sanitize debug release,$(or $(MAKECMDGOALS),all)),)
 KINFO := $(shell python3 scripts/ktree.py check --baseline $(BASELINE) --arch '$(ARCH)' \
 	--cross '$(CROSS_COMPILE)' --llvm '$(LLVM)' \
 	--cc '$(if $(filter-out default,$(origin CC)),$(CC))' '$(KTREE)')
@@ -144,7 +144,8 @@ REFRESH = $(if $(and $(wildcard compile_commands.json),$(filter-out index compdb
 	mv compile_commands.json compile_commands.json.old && $(KBUILD) compile_commands.json > /dev/null && \
 	$(COMPDB) --previous compile_commands.json.old,:)
 
-.PHONY: all debug release sanitize index clean-index clean distclean help list tags cscope cscope.files \
+.PHONY: all debug release sanitize index clean-index clean distclean format format-check help list tags cscope \
+	cscope.files \
 	compdb target $(SAMPLES)
 
 all: | target $(KPREP)
@@ -235,6 +236,7 @@ help:
 		'  clean-index   remove compile_commands.json, tags and cscope.*' \
 		'  clean         remove the objects, modules, .ko.debug files and .kbuild/' \
 		'  distclean     clean, clean-index, clangd caches, tool outputs and the signing key' \
+		'  format        clang-format every source in place (format-check only lists the changes)' \
 		'  list          list the registered samples' \
 		'  <dir>/<name>  one sample, for example $(firstword $(SAMPLES))' \
 		'  help          print this help' \
@@ -252,6 +254,16 @@ help:
 
 list:
 	@for s in $(SAMPLES); do echo "$$s"; done
+
+FORMAT_SRCS = $(shell git ls-files -- '*.c' '*.h' 2> /dev/null)
+
+format:
+	@clang-format -i $(FORMAT_SRCS)
+	@echo "=> format: $(words $(FORMAT_SRCS)) files formatted in place"
+
+format-check:
+	@clang-format --dry-run --Werror $(FORMAT_SRCS)
+	@echo "=> format-check: $(words $(FORMAT_SRCS)) files already formatted"
 
 cscope.files: compdb
 

@@ -53,6 +53,7 @@ make index                     # compile_commands.json with the PROFILE flags, t
 make clean-index               # remove the index files
 make clean                     # remove modules, .ko.debug, build dirs and .kbuild/
 make distclean                 # clean, clean-index, clangd caches, tool outputs and the signing key
+make format                    # clang-format every source (format-check only lists the changes)
 make list                      # list the registered samples
 make help                      # the goals and the variables
 ```
