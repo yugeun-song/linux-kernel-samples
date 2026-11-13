@@ -371,7 +371,9 @@ would contradict it: `pr_fmt`, `module_init`, `MODULE_*`, the kernel types
 clangd needs the exact kbuild flags: `make compdb` has kbuild write
 `compile_commands.json` (`make M=... compile_commands.json`), and
 `scripts/clang-compdb.py` drops the GCC-only flags clang rejects and lists the
-kernel headers the samples include in `cscope.files`.
+kernel headers the samples include in `cscope.files`. `.clangd` turns off
+clangd's unused-include check, which reads `-ENODEV` as coming from
+`asm-generic/errno-base.h` and calls the `<linux/errno.h>` that supplies it unused.
 Build a sample before opening it in an editor. Kernel paths go through a
 version-less link to the build tree when the distribution keeps one (Arch's
 `/usr/src/linux`), so the database survives kernel upgrades; elsewhere, rerun
