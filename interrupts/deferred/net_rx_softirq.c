@@ -28,7 +28,7 @@ static unsigned int run_net_rx_softirq_hook(void *const mut_priv_nullable,
 		return NF_ACCEPT;
 	}
 
-	struct iphdr *iph = ip_hdr(mut_skb_nullable);
+	const struct iphdr *const iph = ip_hdr(mut_skb_nullable);
 	if (iph == NULL || iph->protocol != IPPROTO_TCP) {
 		return NF_ACCEPT;
 	}
@@ -39,9 +39,9 @@ static unsigned int run_net_rx_softirq_hook(void *const mut_priv_nullable,
 	}
 
 	struct tcphdr tcph_buffer;
-	struct tcphdr *tcph = skb_header_pointer(mut_skb_nullable,
-						 skb_transport_offset(mut_skb_nullable),
-						 sizeof(tcph_buffer), &tcph_buffer);
+	const struct tcphdr *const tcph = skb_header_pointer(mut_skb_nullable,
+							     skb_transport_offset(mut_skb_nullable),
+							     sizeof(tcph_buffer), &tcph_buffer);
 	if (tcph == NULL) {
 		return NF_ACCEPT;
 	}

@@ -29,13 +29,16 @@ static int __init init_container_of_module(void)
 		.nested_value.value = 1234,
 		.tail = 0xBEEF
 	};
-	u64 *value_ptr = &obj.aligned_value;
-	u16 *tail_ptr = &obj.tail;
-	int *inner_value_ptr = &obj.nested_value.value;
-	struct some_struct *from_value = container_of(value_ptr, struct some_struct, aligned_value);
-	struct some_struct *from_tail = container_of(tail_ptr, struct some_struct, tail);
-	struct some_struct *from_inner_value = container_of(inner_value_ptr, struct some_struct,
-							    nested_value.value);
+	u64 *const value_ptr = &obj.aligned_value;
+	u16 *const tail_ptr = &obj.tail;
+	int *const inner_value_ptr = &obj.nested_value.value;
+	const struct some_struct *const from_value = container_of(value_ptr, struct some_struct,
+								  aligned_value);
+	const struct some_struct *const from_tail = container_of(tail_ptr, struct some_struct,
+								 tail);
+	const struct some_struct *const from_inner_value = container_of(inner_value_ptr,
+									struct some_struct,
+									nested_value.value);
 
 	pr_info("obj = %px, nested_value at offset %zu\n", &obj,
 		offsetof(struct some_struct, nested_value));

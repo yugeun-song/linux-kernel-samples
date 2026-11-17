@@ -71,7 +71,7 @@ static struct user_info *get_user_info(const char *const username_nullable)
 	struct list_head *pos;
 
 	list_for_each(pos, &gs_user_info_list) {
-		struct user_info *user = container_of(pos, struct user_info, list_node);
+		struct user_info *const user = container_of(pos, struct user_info, list_node);
 
 		if (strcmp(user->username, username_nullable) == 0) {
 			return user;
@@ -104,12 +104,14 @@ static void print_all_user_infos(void)
 		return;
 	}
 
-	struct user_info *first = list_first_entry(&gs_user_info_list, struct user_info, list_node);
-	struct user_info *last = list_last_entry(&gs_user_info_list, struct user_info, list_node);
+	const struct user_info *const first = list_first_entry(&gs_user_info_list, struct user_info,
+							       list_node);
+	const struct user_info *const last = list_last_entry(&gs_user_info_list, struct user_info,
+							     list_node);
 
 	pr_info("first=%s last=%s\n", first->username, last->username);
 
-	struct user_info *user;
+	const struct user_info *user;
 
 	list_for_each_entry(user, &gs_user_info_list, list_node) {
 		pr_info("username=%s age=%u\n", user->username, user->age);
@@ -158,7 +160,7 @@ static int __init init_list_module(void)
 	};
 
 	for (size_t i = 0; i < N_USER_INFOS; ++i) {
-		struct user_info *user = kzalloc(sizeof(*user), GFP_KERNEL);
+		struct user_info *const user = kzalloc(sizeof(*user), GFP_KERNEL);
 		if (user == NULL) {
 			goto err_free_user_infos;
 		}
@@ -177,7 +179,7 @@ static int __init init_list_module(void)
 	print_all_user_infos();
 
 	for (size_t i = 0; i < ARRAY_SIZE(s_get_targets); ++i) {
-		struct user_info *user = get_user_info(s_get_targets[i]);
+		const struct user_info *const user = get_user_info(s_get_targets[i]);
 
 		if (user != NULL) {
 			pr_info("'%s' is in the list and is %u years old\n", s_get_targets[i],
@@ -187,7 +189,7 @@ static int __init init_list_module(void)
 		}
 	}
 
-	struct user_info *user = get_user_info("username#3");
+	struct user_info *const user = get_user_info("username#3");
 	if (user != NULL) {
 		pr_info("username#3 is %u years old, changing the age to 99\n", user->age);
 
