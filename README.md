@@ -379,7 +379,7 @@ version-less link to the build tree when the distribution keeps one (Arch's
 `/usr/src/linux`), so the database survives kernel upgrades; elsewhere, rerun
 `make compdb` once an upgrade removes the old tree.
 
-[coding-style]: https://github.com/yugeun-song/c-programming/blob/main/docs/coding-style.md
+[coding-style]: https://github.com/yugeun-song/c-programming/blob/main/docs/coding-style.en.md
 
 ## License
 
